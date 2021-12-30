@@ -108,8 +108,8 @@ export const pullYourMetadata = async (
 
   console.log('--------->Pulling metadata for user.');
   let currBatch: string[] = [];
-  let batches = [];
-  const editions = [];
+  let batches: string[][] | null = [];
+  const editions: string[] = [];
   for (let i = 0; i < userTokenAccounts.length; i++) {
     if (userTokenAccounts[i].info.amount.toNumber() == 1) {
       if (2 + currBatch.length > MULTIPLE_ACCOUNT_BATCH_SIZE) {

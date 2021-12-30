@@ -225,7 +225,7 @@ export async function sendTransactionsWithManualRetry(
 ) {
   let stopPoint = 0;
   let tries = 0;
-  let lastInstructionsLength = null;
+  let lastInstructionsLength: number | null = null;
   let toRemoveSigners: Record<number, boolean> = {};
   instructions = instructions.filter((instr, i) => {
     if (instr.length > 0) {
