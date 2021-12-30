@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   Divider,
   Steps,
@@ -14,13 +14,14 @@ import {
   Select,
   Checkbox,
 } from 'antd';
-import { ArtCard } from '../../components/ArtCard';
-import { QUOTE_MINT } from '../../constants';
-import { Confetti } from '../../components/Confetti';
-import { ArtSelector, SelectionContext } from './artSelector';
+import { ArtCard } from './../../components/ArtCard';
+import { MINIMUM_SAFE_FEE_AUCTION_CREATION, QUOTE_MINT } from './../../constants';
+import { Confetti } from './../../components/Confetti';
+import { ArtSelector } from './artSelector';
 import {
   MAX_METADATA_LEN,
   useConnection,
+  WalletSigner,
   WinnerLimit,
   WinnerLimitType,
   toLamports,
@@ -28,33 +29,33 @@ import {
   Creator,
   PriceFloor,
   PriceFloorType,
+  IPartialCreateAuctionArgs,
   MetadataKey,
   StringPublicKey,
-  WalletSigner,
+  WRAPPED_SOL_MINT,
+  shortenAddress,
+  useNativeAccount,
+  ParsedAccount,
   MasterEditionV1,
-  MasterEditionV2,
-  ParsedAccount
+  MasterEditionV2
 } from '@oyster/common';
-import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { MintLayout, AccountLayout, Token } from '@solana/spl-token';
+import { MintInfo, MintLayout } from '@solana/spl-token';
 import { useHistory, useParams } from 'react-router-dom';
-import { capitalize, String } from 'lodash';
+import { capitalize } from 'lodash';
 import {
   WinningConfigType,
   AmountRange,
-  getAuctionKeys,
-  getWhitelistedCreator,
-  startAuction,
-  WhitelistedCreator,
-  ParticipationConfigV2,
-  TupleNumericType,
   SafetyDepositConfig,
-  ParticipationStateV2,
-  StoreIndexer,
+  TupleNumericType,
 } from '@oyster/common/dist/lib/models/metaplex/index';
 import moment from 'moment';
-import { SafetyDepositDraft } from '../../actions/createAuctionManager';
+import {
+  createAuctionManager,
+  SafetyDepositDraft,
+} from '../../actions/createAuctionManager';
 import BN from 'bn.js';
 import { constants } from '@oyster/common';
 import { DateTimePicker } from '../../components/DateTimePicker';
@@ -63,21 +64,20 @@ import { useMeta } from '../../contexts';
 import useWindowDimensions from '../../utils/layout';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import { SystemProgram } from '@solana/web3.js';
-import { activateVault } from '../../../../common/src/actions/vault';
-import { stringify } from 'querystring';
-import { createExternalFractionPriceAccount } from '../../actions/createExternalFractionPriceAccoint';
+import TokenDialog, { TokenButton } from '../../components/TokenDialog';
+import { useTokenList } from '../../contexts/tokenList';
+import { mintTo } from '@project-serum/serum/lib/token-instructions';
+import { TokenInfo } from '@solana/spl-token-registry'
+import { FundsIssueModal } from "../../components/FundsIssueModal";
 import { createVault } from '../../actions/createVault';
-import { addTokensToVault, SafetyDepositInstructionTemplate} from '../../actions/addTokensToVault';
+import { createExternalFractionPriceAccount } from '../../actions/createExternalFractionPriceAccount';
 import { deprecatedPopulatePrintingTokens } from '../../actions/deprecatedPopulatePrintingTokens';
-import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
+import { addTokensToVault, SafetyDepositInstructionTemplate} from '../../actions/addTokensToVault';
+import { activateVault } from '../../../../common/src/actions/vault';
 
 const { Option } = Select;
 const { Step } = Steps;
 const { ZERO } = constants;
-
-// export enum FractionCategory {
-//   Limited
-// }
 
 export interface ICreatePartialFractionArgs {
   /// Token mint for the SPL token used for bidding.
@@ -104,12 +104,6 @@ export interface ICreatePartialFractionArgs {
 
 }
 
-export interface ICreateFractionArgs extends ICreatePartialFractionArgs {
-  /// Authority
-  authority: StringPublicKey;
-}
-
-// TODO might be able to delete fraction manager and just import safety deposit draft from original auction file
 
 export interface FractionState {
 
@@ -129,11 +123,10 @@ export interface FractionState {
   //category: FractionCategory;
 }
 
-// TODO :: Maybe have to add enum handling for different types of nft (master copy, limited edition, etc), maybe not though
 
 export const FractionCreateView = () => {
   const connection = useConnection();
-  const wallet : WalletSigner = useWallet();
+  const wallet = useWallet();
   const { whitelistedCreatorsByCreator, storeIndexer } = useMeta();
   const { step_param }: { step_param: string } = useParams();
   const history = useHistory();
@@ -147,7 +140,6 @@ export const FractionCreateView = () => {
       | {
           vault: StringPublicKey;
           fractionTokenMint: StringPublicKey;
-          fractionManager: StringPublicKey;
         }
       | undefined
     >(undefined);
@@ -158,6 +150,10 @@ export const FractionCreateView = () => {
     ticker: "",
   });
 
+  const [quoteMintAddress, setQuoteMintAddress] = useState<string>()
+  const [quoteMintInfo, setQuoteMintInfo] = useState<MintInfo>()
+  const [quoteMintInfoExtended, setQuoteMintInfoExtended] = useState<TokenInfo>()
+
   useEffect(() => {
     if (step_param) setStep(parseInt(step_param));
     else gotoNextStep(0);
@@ -165,7 +161,7 @@ export const FractionCreateView = () => {
 
   const gotoNextStep = (_step?: number) => {
     const nextStep = _step === undefined ? step + 1 : _step;
-    history.push(`/frack/create/${nextStep.toString()}`);
+    history.push(`/auction/create/${nextStep.toString()}`);
   };
 
   const createFraction = async () => {
@@ -184,11 +180,6 @@ export const FractionCreateView = () => {
       // Get items
       // NOTE if fails I might be getting this wrong. check
       const safetyDepositDrafts = attributes.items;
-
-      // look where i might need to put this
-      const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
-        AccountLayout.span,
-      );
     
       const {
         externalPriceAccount,
@@ -196,7 +187,6 @@ export const FractionCreateView = () => {
         instructions: epaInstructions,
         signers: epaSigners,
       } = await createExternalFractionPriceAccount(connection, wallet, fractionVaultSettings.maxSupply, fractionVaultSettings.buyoutPrice);
-    // TODO - Also I think i dont need fractionExternalPriceAccount -> maybe use normal definition?
     
       const {
         instructions: createVaultInstructions,
@@ -382,7 +372,6 @@ const CopiesStep = (props: {
               props.setAttributes({ ...props.attributes, items });
             }}
             allowMultiple={true}
-            selectionContext={SelectionContext.chooseToFrack}
           >
             Select NFTS to Insert into Vault
           </ArtSelector>
@@ -618,14 +607,13 @@ const Congrats = (props: {
   fraction?: {
     vault: StringPublicKey;
     fractionTokenMint: StringPublicKey;
-    fractionManager: StringPublicKey;
   };
 }) => {
   const history = useHistory();
 
   const newTweetURL = () => {
     const params = {
-      text: "I've fractionalised this on Frackr, check out the new generation of DEFI!",
+      text: "I've fractionalized this on Frackr, check out the new generation of ownership!",
       url: `${
         window.location.origin
       }/#/auction/${props.fraction?.fractionTokenMint.toString()}`,

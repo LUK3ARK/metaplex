@@ -88,6 +88,10 @@ export async function uploadV2({
     cacheContent.program = {};
   }
 
+  if (!cacheContent.items) {
+    cacheContent.items = {};
+  }
+
   const dedupedAssetKeys = getAssetKeysNeedingUpload(cacheContent.items, files);
   const SIZE = dedupedAssetKeys.length;
   console.log('Size', SIZE, dedupedAssetKeys[0]);
@@ -384,8 +388,7 @@ export async function uploadV2({
                   saveCache(cacheName, env, cacheContent);
                 } catch (e) {
                   log.error(
-                    `saving config line ${ind}-${
-                      keys[indexes[indexes.length - 1]]
+                    `saving config line ${ind}-${keys[indexes[indexes.length - 1]]
                     } failed`,
                     e,
                   );
@@ -436,6 +439,7 @@ type Manifest = {
     }>;
   };
 };
+
 /**
  * From the Cache object & a list of file paths, return a list of asset keys
  * (filenames without extension nor path) that should be uploaded, sorted numerically in ascending order.
@@ -469,17 +473,19 @@ function getAssetKeysNeedingUpload(
 }
 
 /**
- * From the Cache object & a list of file paths, return a list of asset keys
- * (filenames without extension nor path) that should be uploaded.
- * Assets which should be uploaded either are not present in the Cache object,
- * or do not truthy value for the `link` property.
+ * Returns a Manifest from a path and an assetKey
+ * Replaces image.ext => index.ext
  */
 function getAssetManifest(dirname: string, assetKey: string): Manifest {
+  const assetIndex = assetKey.includes('.json') ? assetKey.substring(0, assetKey.length - 5) : assetKey;
   const manifestPath = path.join(
     dirname,
-    assetKey.includes('json') ? assetKey : `${assetKey}.json`,
+    `${assetIndex}.json`,
   );
-  return JSON.parse(fs.readFileSync(manifestPath).toString());
+  const manifest: Manifest = JSON.parse(fs.readFileSync(manifestPath).toString());
+  manifest.image = manifest.image.replace('image', assetIndex);
+  manifest.properties.files[0].uri = manifest.properties.files[0].uri.replace('image', assetIndex);
+  return manifest;
 }
 
 /**
@@ -591,8 +597,7 @@ async function writeIndices({
                 saveCache(cacheName, env, cache);
               } catch (err) {
                 log.error(
-                  `Saving config line ${ind}-${
-                    keys[indexes[indexes.length - 1]]
+                  `Saving config line ${ind}-${keys[indexes[indexes.length - 1]]
                   } failed`,
                   err,
                 );
@@ -817,16 +822,16 @@ export async function upload({
     const config = cache.program.config
       ? new PublicKey(cache.program.config)
       : await initConfig(anchorProgram, walletKeyPair, {
-          totalNFTs,
-          mutable,
-          retainAuthority,
-          sellerFeeBasisPoints,
-          symbol,
-          creators,
-          env,
-          cache,
-          cacheName,
-        });
+        totalNFTs,
+        mutable,
+        retainAuthority,
+        sellerFeeBasisPoints,
+        symbol,
+        creators,
+        env,
+        cache,
+        cacheName,
+      });
 
     setAuthority(walletKeyPair.publicKey, cache, cacheName, env);
 
