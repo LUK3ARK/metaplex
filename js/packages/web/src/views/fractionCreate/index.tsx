@@ -37,10 +37,11 @@ import {
   useNativeAccount,
   ParsedAccount,
   MasterEditionV1,
-  MasterEditionV2
+  MasterEditionV2,
+  toPublicKey
 } from '@oyster/common';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
-import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
+import { Connection, LAMPORTS_PER_SOL, PublicKey, TransactionInstruction, Keypair } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { MintInfo, MintLayout } from '@solana/spl-token';
 import { useHistory, useParams } from 'react-router-dom';
@@ -53,11 +54,10 @@ import {
 } from '@oyster/common/dist/lib/models/metaplex/index';
 import moment from 'moment';
 import {
-  createAuctionManager,
   SafetyDepositDraft,
 } from '../../actions/createAuctionManager';
 import BN from 'bn.js';
-import { constants } from '@oyster/common';
+import { constants, activateVault, createTokenAccount, approve } from '@oyster/common';
 import { DateTimePicker } from '../../components/DateTimePicker';
 import { AmountLabel } from '../../components/AmountLabel';
 import { useMeta } from '../../contexts';
@@ -70,16 +70,14 @@ import { mintTo } from '@project-serum/serum/lib/token-instructions';
 import { TokenInfo } from '@solana/spl-token-registry'
 import { FundsIssueModal } from "../../components/FundsIssueModal";
 import { createVault } from '../../actions/createVault';
-import { createExternalFractionPriceAccount } from '../../actions/createExternalFractionPriceAccount';
-import { deprecatedPopulatePrintingTokens } from '../../actions/deprecatedPopulatePrintingTokens';
-import { addTokensToVault, SafetyDepositInstructionTemplate} from '../../actions/addTokensToVault';
-import { activateVault } from '../../../../common/src/actions/vault';
+import { createExternalFractionPriceAccount, addTokensToVault, SafetyDepositInstructionTemplate } from '../../actions';
+import { AccountLayout } from '@solana/spl-token';
 
 const { Option } = Select;
 const { Step } = Steps;
 const { ZERO } = constants;
 
-export interface ICreatePartialFractionArgs {
+export interface IPartialCreateFractionArgs {
   /// Token mint for the SPL token used for bidding.
   tokenMint: StringPublicKey;
 
@@ -91,16 +89,6 @@ export interface ICreatePartialFractionArgs {
 
   /// Price required to buyout the NFT item(s) from the vault
   buyoutPrice: BN;
-
-  /// The resource being fractioned. See AuctionData.
-  //resource: StringPublicKey;
-
-  /// TODO try to bring this back some day. Had to remove this due to a stack access violation bug
-  /// interactin that happens in metaplex during redemptions due to some low level rust error
-  /// that happens when AuctionData has too many fields. This field was the least used.
-  ///pub resource: Pubkey, 
-
-  // ^^^^^ from AuctionData talking about resource property
 
 }
 
@@ -135,14 +123,6 @@ export const FractionCreateView = () => {
 
   const [step, setStep] = useState<number>(0);
   const [stepsVisible, setStepsVisible] = useState<boolean>(true);
-  const [fractionObj, setFractionObj] =
-    useState<
-      | {
-          vault: StringPublicKey;
-          fractionTokenMint: StringPublicKey;
-        }
-      | undefined
-    >(undefined);
   const [attributes, setAttributes] = useState<FractionState>({
     items: [],
     buyoutPrice: 0,
@@ -170,15 +150,16 @@ export const FractionCreateView = () => {
     if(wallet && wallet.publicKey) {
 
       // NOTE: Called partial fraction args as it is not all of the arguments!! later on in logic authority is added I think
-      const fractionVaultSettings: ICreatePartialFractionArgs = {
+      const fractionVaultSettings: IPartialCreateFractionArgs = {
         tokenMint: QUOTE_MINT.toBase58(),
         maxSupply: new BN(attributes.fractionSupply * LAMPORTS_PER_SOL),
-        buyoutPrice: new BN((attributes.buyoutPrice) * LAMPORTS_PER_SOL),
+        buyoutPrice: new BN(attributes.buyoutPrice * LAMPORTS_PER_SOL),
         ticker: attributes.ticker,
       };
 
       // Get items
       // NOTE if fails I might be getting this wrong. check
+      // TODO Maybe, maybe not
       const safetyDepositDrafts = attributes.items;
     
       const {
@@ -197,55 +178,83 @@ export const FractionCreateView = () => {
         fractionTreasury,
       } = await createVault(connection, wallet, priceMint, externalPriceAccount);
 
-
-      const safetyDepositConfigsWithPotentiallyUnsetTokens =
+      const safetyDepositConfigs =
       await buildSafetyDepositArray(
         wallet,
-        safetyDepositDrafts
+        safetyDepositDrafts,
       );
 
-      // Only creates for PrintingV1 deprecated configs
-      const {
-        instructions: populateInstr,
-        signers: populateSigners,
-        safetyDepositConfigs,
-      } = await deprecatedPopulatePrintingTokens(
-        connection,
-        wallet,
-        safetyDepositConfigsWithPotentiallyUnsetTokens,
-      );
-
-      // Add tokens to vault
       const {
         instructions: addTokenInstructions,
         signers: addTokenSigners,
         safetyDepositTokenStores,
       } = await addTokensToVault(connection, wallet, vault, safetyDepositConfigs);
-    
-      // THIS CREATES THE SHARES
+
+      
+
+      // Do fractionalisation stuff
+      if (!wallet.publicKey) throw new WalletNotConnectedError();
+
+      const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
+        AccountLayout.span,
+      );
+      const signers: Keypair[] = [];
+      const instructions: TransactionInstruction[] = [];
+
       await activateVault(
         new BN(fractionVaultSettings.maxSupply),
         vault,
         fractionalMint,
         fractionTreasury,
         wallet.publicKey.toBase58(),
-        createVaultInstructions,
+        instructions,
       );
 
-      // try {
-      //   const _fractionObj = await createFractionManager(
-      //     connection,
-      //     wallet,
-      //     whitelistedCreatorsByCreator,
-      //     fractionVaultSettings,
-      //     safetyDepositDrafts,
-      //     QUOTE_MINT.toBase58(),
-      //     storeIndexer,
-      //   );
-      //   setFractionObj(_fractionObj);
-      // }catch(Exception) {
-      //   // TODO!!! ADD ERROR handling for when user doesnt go through with fraction creation
-      // }
+
+      const outstandingShareAccount = createTokenAccount(
+        instructions,
+        wallet.publicKey,
+        accountRentExempt,
+        toPublicKey(fractionalMint),
+        wallet.publicKey,
+        signers,
+      );
+
+      const payingTokenAccount = createTokenAccount(
+        instructions,
+        wallet.publicKey,
+        accountRentExempt,
+        toPublicKey(priceMint),
+        wallet.publicKey,
+        signers,
+      );
+
+      const transferAuthority = Keypair.generate();
+
+      approve(
+        instructions,
+        [],
+        payingTokenAccount,
+        wallet.publicKey,
+        0,
+        false,
+        undefined,
+        transferAuthority,
+      );
+
+      approve(
+        instructions,
+        [],
+        outstandingShareAccount,
+        wallet.publicKey,
+        0,
+        false,
+        undefined,
+        transferAuthority,
+      );
+
+      signers.push(transferAuthority);
+
     }else {
       // TODO catch when user wallet isnt defined. can a user get to this point?
     }
@@ -281,7 +290,7 @@ export const FractionCreateView = () => {
     <WaitingStep createFraction={createFraction} confirm={() => gotoNextStep()} />
   );
 
-  const congratsStep = <Congrats fraction={fractionObj} />;
+  const congratsStep = <Congrats />;
 
   const steps = [
       ['Copies', copiesStep],
@@ -662,7 +671,7 @@ const Congrats = (props: {
   );
 };
 
-
+// TODO : TRY TO ADD PARTICIPATION BACK
 async function buildSafetyDepositArray(
   wallet: WalletSigner,
   safetyDeposits: SafetyDepositDraft[],
