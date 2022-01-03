@@ -518,6 +518,8 @@ export enum WinningConfigType {
   PrintingV2,
   /// Means you are using a MasterEditionV2 as a participation prize.
   Participation,
+  /// Means you are fractionalising this edition (MasterEditionV2 / Limited / Open edition)
+  Fractionalise,
 }
 
 export const decodeStoreIndexer = (buffer: Buffer) => {

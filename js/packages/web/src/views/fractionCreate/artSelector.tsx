@@ -93,9 +93,9 @@ export const ArtSelector = (props: ArtSelectorProps) => {
 
               const onSelect = () => {
                 let list = [...selectedItems.keys()];
-                if (allowMultiple) {
-                  list = [];
-                }
+                // if (allowMultiple) {
+                //   list = [];
+                // }
 
                 const newSet = isSelected
                   ? new Set(list.filter(item => item !== id))

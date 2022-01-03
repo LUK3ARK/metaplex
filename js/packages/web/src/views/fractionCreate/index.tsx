@@ -141,7 +141,7 @@ export const FractionCreateView = () => {
 
   const gotoNextStep = (_step?: number) => {
     const nextStep = _step === undefined ? step + 1 : _step;
-    history.push(`/auction/create/${nextStep.toString()}`);
+    history.push(`/fraction/create/${nextStep.toString()}`);
   };
 
   const createFraction = async () => {
@@ -157,10 +157,18 @@ export const FractionCreateView = () => {
         ticker: attributes.ticker,
       };
 
-      // Get items
-      // NOTE if fails I might be getting this wrong. check
-      // TODO Maybe, maybe not
       const safetyDepositDrafts = attributes.items;
+      if (safetyDepositDrafts.length > 0) {
+        safetyDepositDrafts.forEach((s, i) => {
+          s.amountRanges = [
+            new AmountRange({
+              amount: new BN(1),
+              length: new BN(safetyDepositDrafts.length),
+            }),
+          ];
+        });  
+      }
+      console.log("number of safetyDeposits in draft: " + safetyDepositDrafts.length);
     
       const {
         externalPriceAccount,
@@ -168,7 +176,7 @@ export const FractionCreateView = () => {
         instructions: epaInstructions,
         signers: epaSigners,
       } = await createExternalFractionPriceAccount(connection, wallet, fractionVaultSettings.maxSupply, fractionVaultSettings.buyoutPrice);
-    
+      
       const {
         instructions: createVaultInstructions,
         signers: createVaultSigners,
@@ -190,7 +198,7 @@ export const FractionCreateView = () => {
         safetyDepositTokenStores,
       } = await addTokensToVault(connection, wallet, vault, safetyDepositConfigs);
 
-      
+      console.log("tokens added to vault");
 
       // Do fractionalisation stuff
       if (!wallet.publicKey) throw new WalletNotConnectedError();
@@ -219,6 +227,7 @@ export const FractionCreateView = () => {
         wallet.publicKey,
         signers,
       );
+      console.log("outstanSHAREACCOUNT" + outstandingShareAccount);
 
       const payingTokenAccount = createTokenAccount(
         instructions,
@@ -294,7 +303,7 @@ export const FractionCreateView = () => {
 
   const steps = [
       ['Copies', copiesStep],
-      ['Create Supply', priceFractionsStep],
+      ['Supply', priceFractionsStep],
       ['Review', reviewStep],
       ['Frack', waitStep],
       [undefined, congratsStep],
@@ -677,7 +686,10 @@ async function buildSafetyDepositArray(
   safetyDeposits: SafetyDepositDraft[],
 ): Promise<SafetyDepositInstructionTemplate[]> {
   if (!wallet.publicKey) throw new WalletNotConnectedError();
-
+  console.log("OMG LOOK HERE!!!!!")
+  safetyDeposits.forEach((s, i ) => {
+    console.log("sfaety are " + s + "anddddD" + i);
+  })
   const safetyDepositTemplates: SafetyDepositInstructionTemplate[] = [];
   safetyDeposits.forEach((s, i) => {
     const maxAmount = [...s.amountRanges.map(a => a.amount)]
