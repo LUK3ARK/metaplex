@@ -642,6 +642,71 @@ export async function combineVault(
   );
 }
 
+export async function mintFractionalShares(
+  numberOfShares: BN,
+  vault: StringPublicKey,
+  fractionTreasury: StringPublicKey,
+  fractionalMint: StringPublicKey,
+  vaultAuthority: StringPublicKey,
+  instructions: TransactionInstruction[],
+) {
+  const vaultProgramId = programIds().vault;
+
+  const fractionMintAuthority = (
+    await findProgramAddress(
+      [
+        Buffer.from(VAULT_PREFIX),
+        toPublicKey(vaultProgramId).toBuffer(),
+        toPublicKey(vault).toBuffer(),
+      ],
+      toPublicKey(vaultProgramId),
+    )
+  )[0];
+
+  const value = new NumberOfShareArgs({ instruction: 2, numberOfShares });
+  const data = Buffer.from(serialize(VAULT_SCHEMA, value));
+
+  const keys = [
+    {
+      pubkey: toPublicKey(fractionTreasury),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: toPublicKey(fractionalMint),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: toPublicKey(vault),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: toPublicKey(fractionMintAuthority),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: toPublicKey(vaultAuthority),
+      isSigner: true,
+      isWritable: false,
+    },
+    {
+      pubkey: programIds().token,
+      isSigner: false,
+      isWritable: false,
+    },
+  ];
+  instructions.push(
+    new TransactionInstruction({
+      keys,
+      programId: toPublicKey(vaultProgramId),
+      data,
+    }),
+  );
+}
+
 export async function withdrawTokenFromSafetyDepositBox(
   amount: BN,
   destination: StringPublicKey,

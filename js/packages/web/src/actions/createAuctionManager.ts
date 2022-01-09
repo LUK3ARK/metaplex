@@ -677,7 +677,7 @@ async function findValidWhitelistedCreator(
   return await getWhitelistedCreator(creators[0]?.address);
 }
 
-async function validateBoxes(
+export async function validateBoxes(
   wallet: WalletSigner,
   whitelistedCreatorsByCreator: Record<
     string,

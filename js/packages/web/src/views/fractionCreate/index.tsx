@@ -38,7 +38,11 @@ import {
   ParsedAccount,
   MasterEditionV1,
   MasterEditionV2,
-  toPublicKey
+  toPublicKey,
+  sendTransactionWithRetry,
+  sendTransactions,
+  SequenceType,
+  VAULT_ID,
 } from '@oyster/common';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
 import { Connection, LAMPORTS_PER_SOL, PublicKey, TransactionInstruction, Keypair } from '@solana/web3.js';
@@ -57,7 +61,7 @@ import {
   SafetyDepositDraft,
 } from '../../actions/createAuctionManager';
 import BN from 'bn.js';
-import { constants, activateVault, createTokenAccount, approve } from '@oyster/common';
+import { constants, createTokenAccount, approve } from '@oyster/common';
 import { DateTimePicker } from '../../components/DateTimePicker';
 import { AmountLabel } from '../../components/AmountLabel';
 import { useMeta } from '../../contexts';
@@ -71,11 +75,35 @@ import { TokenInfo } from '@solana/spl-token-registry'
 import { FundsIssueModal } from "../../components/FundsIssueModal";
 import { createVault } from '../../actions/createVault';
 import { createExternalFractionPriceAccount, addTokensToVault, SafetyDepositInstructionTemplate } from '../../actions';
+import { activateFractionVault } from '../../actions/activateFractionVault';
 import { AccountLayout } from '@solana/spl-token';
+import { markItemsThatArentMineAsSold } from '../../actions/markItemsThatArentMineAsSold';
+import { setVaultFractionAuthorities } from '../../actions/setVaultFractionAuthorities';
+import { validateBoxes } from '../../actions/createAuctionManager';
 
 const { Option } = Select;
 const { Step } = Steps;
 const { ZERO } = constants;
+
+interface normalPattern {
+  instructions: TransactionInstruction[];
+  signers: Keypair[];
+}
+
+interface arrayPattern {
+  instructions: TransactionInstruction[][];
+  signers: Keypair[][];
+}
+
+interface byType {
+  markItemsThatArentMineAsSold: arrayPattern;
+  addTokens: arrayPattern;
+  activateVault: normalPattern;
+  validateBoxes: arrayPattern;
+  createVault: normalPattern;
+  setVaultFractionAuthorities: normalPattern;
+  externalFractionPriceAccount: normalPattern;
+}
 
 export interface IPartialCreateFractionArgs {
   /// Token mint for the SPL token used for bidding.
@@ -198,7 +226,7 @@ export const FractionCreateView = () => {
         safetyDepositTokenStores,
       } = await addTokensToVault(connection, wallet, vault, safetyDepositConfigs);
 
-      console.log("tokens added to vault");
+      console.log("tokens added to vault and max supply is -- " + fractionVaultSettings.maxSupply);
 
       // Do fractionalisation stuff
       if (!wallet.publicKey) throw new WalletNotConnectedError();
@@ -206,63 +234,168 @@ export const FractionCreateView = () => {
       const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
         AccountLayout.span,
       );
-      const signers: Keypair[] = [];
-      const instructions: TransactionInstruction[] = [];
 
-      await activateVault(
-        new BN(fractionVaultSettings.maxSupply),
+      const {
+        instructions: activateVaultInstructions,
+        signers: activateVaultSigners,
+      } = 
+      await activateFractionVault(
+        connection,
+        wallet,
         vault,
+        fractionVaultSettings.maxSupply,
         fractionalMint,
         fractionTreasury,
-        wallet.publicKey.toBase58(),
-        instructions,
       );
 
+      // IMPORTANT TODO!!!!!
+      // TODO
+      // for now, just putting as dummy value. In reality, this will be the contract I create
+      const fractionManager = VAULT_ID;
 
-      const outstandingShareAccount = createTokenAccount(
-        instructions,
-        wallet.publicKey,
-        accountRentExempt,
-        toPublicKey(fractionalMint),
-        wallet.publicKey,
-        signers,
-      );
-      console.log("outstanSHAREACCOUNT" + outstandingShareAccount);
+      // TODO if eventually add fraction manager, need to add section here for initfraction manager instructions
+      // + cachefractionindexer or something
+      const lookup: byType = {
+        markItemsThatArentMineAsSold: await markItemsThatArentMineAsSold(
+          wallet,
+          safetyDepositDrafts,
+        ),
+        externalFractionPriceAccount: {
+          instructions: epaInstructions,
+          signers: epaSigners,
+        },
+        createVault: {
+          instructions: createVaultInstructions,
+          signers: createVaultSigners,
+        },
+        addTokens: { instructions: addTokenInstructions, signers: addTokenSigners },
+        activateVault: { instructions: activateVaultInstructions, signers: activateVaultSigners },
+        setVaultFractionAuthorities: await setVaultFractionAuthorities(
+          wallet,
+          vault,
+          fractionManager,
+        ),
+        // TODO add validation for participation NFTs
+        validateBoxes: await validateBoxes(
+          wallet,
+          whitelistedCreatorsByCreator,
+          vault,
+          safetyDepositConfigs,
+          safetyDepositTokenStores,
+        ),
+      };
 
-      const payingTokenAccount = createTokenAccount(
-        instructions,
-        wallet.publicKey,
-        accountRentExempt,
-        toPublicKey(priceMint),
-        wallet.publicKey,
-        signers,
-      );
+      // TODO FIX VALIDATION OF BOXES ^^
 
-      const transferAuthority = Keypair.generate();
+      const signers: Keypair[][] = [
+        ...lookup.markItemsThatArentMineAsSold.signers,
+        lookup.externalFractionPriceAccount.signers,
+        lookup.createVault.signers,
+        ...lookup.addTokens.signers,
+        lookup.activateVault.signers,
+        lookup.setVaultFractionAuthorities.signers,
+        ...lookup.validateBoxes.signers,
+      ];
 
-      approve(
-        instructions,
-        [],
-        payingTokenAccount,
-        wallet.publicKey,
-        0,
-        false,
-        undefined,
-        transferAuthority,
-      );
+      for(var i=0; i < signers.length; i++) {
+        console.log("for i = " + i + "    length of signers is " + signers[i].length);
+      }
+      const toRemoveSigners: Record<number, boolean> = {};
+      let instructions: TransactionInstruction[][] = [
+        ...lookup.markItemsThatArentMineAsSold.instructions,
+        lookup.externalFractionPriceAccount.instructions,
+        lookup.createVault.instructions,
+        ...lookup.addTokens.instructions,
+        lookup.activateVault.instructions,
+        lookup.setVaultFractionAuthorities.instructions,
+        ...lookup.validateBoxes.instructions,
+      ].filter((instr, i) => {
+        if (instr.length > 0) {
+          return true;
+        } else {
+          toRemoveSigners[i] = true;
+          return false;
+        }
+      });
 
-      approve(
-        instructions,
-        [],
-        outstandingShareAccount,
-        wallet.publicKey,
-        0,
-        false,
-        undefined,
-        transferAuthority,
-      );
+      // debug
+      for(var i=0; i < instructions.length; i++) {
+        console.log("for i = " + i + "    length of instructions is " + instructions[i].length);
+      }
 
-      signers.push(transferAuthority);
+      let filteredSigners = signers.filter((_, i) => !toRemoveSigners[i]);
+
+      let stopPoint = 0;
+      let tries = 0;
+      let lastInstructionsLength: number | null = null;
+      while (stopPoint < instructions.length && tries < 3) {
+        instructions = instructions.slice(stopPoint, instructions.length);
+        filteredSigners = filteredSigners.slice(stopPoint, filteredSigners.length);
+
+        if (instructions.length === lastInstructionsLength) tries = tries + 1;
+        else tries = 0;
+
+        try {
+          if (instructions.length === 1) {
+            await sendTransactionWithRetry(
+              connection,
+              wallet,
+              instructions[0],
+              filteredSigners[0],
+              'single',
+            );
+            stopPoint = 1;
+          } else {
+            stopPoint = await sendTransactions(
+              connection,
+              wallet,
+              instructions,
+              filteredSigners,
+              SequenceType.StopOnFailure,
+              'single',
+            );
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        console.log(
+          'Died on ',
+          stopPoint,
+          'retrying from instruction',
+          instructions[stopPoint],
+          'instructions length is',
+          instructions.length,
+        );
+        lastInstructionsLength = instructions.length;
+      }
+
+      console.log("Finished. vault: " + vault);
+      console.log("Finished. fractionalTreasury: " + fractionTreasury);
+      console.log("Finished. fractionalMint: " + fractionalMint);
+
+
+
+
+      // IMPORTANT
+      // So, after activating the vault, 
+      // fractionalMint is the address who can mint new 
+      // const outstandingShareAccount = createTokenAccount(
+      //   instructions,
+      //   wallet.publicKey,
+      //   accountRentExempt,
+      //   toPublicKey(fractionalMint),
+      //   wallet.publicKey,
+      //   signers,
+      // );
+
+      // const payingTokenAccount = createTokenAccount(
+      //   instructions,
+      //   wallet.publicKey,
+      //   accountRentExempt,
+      //   toPublicKey(priceMint),
+      //   wallet.publicKey,
+      //   signers,
+      // );
 
     }else {
       // TODO catch when user wallet isnt defined. can a user get to this point?

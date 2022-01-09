@@ -59,6 +59,8 @@ import { processPackCards } from './processPackCards';
 import { getProvingProcessByPackSetAndWallet } from '../../models/packs/accounts/ProvingProcess';
 import { processProvingProcess } from './processProvingProcess';
 
+// TODO add 'getvaultcache' back like auction
+
 const MULTIPLE_ACCOUNT_BATCH_SIZE = 100;
 
 export const USE_SPEED_RUN = false;
@@ -247,6 +249,31 @@ export const pullPayoutTickets = async (
   }).then(forEach(processMetaplexAccounts));
 
   return tempCache;
+};
+
+// Pulls all vaults
+// walletKey?: PublicKey | null,
+export const pullVaults = async (
+  connection: Connection,
+  state: MetaState,
+): Promise<MetaState> => {
+  const updateTemp = makeSetter(state);
+  const forEach =
+    (fn: ProcessAccountsFunc) => async (accounts: AccountAndPubkey[]) => {
+      for (const account of accounts.flat()) {
+        await fn(account, updateTemp);
+      }
+    };
+
+  const store = programIds().store;
+  if (store) {
+    // vault pull
+    await getProgramAccounts(connection, VAULT_ID).then(
+      forEach(processVaultData),
+    );
+  }
+
+  return state;
 };
 
 export const pullPacks = async (
@@ -500,6 +527,42 @@ export const pullAuctionSubaccounts = async (
 
   return tempCache;
 };
+
+// TODO: CONVERT INTO PULLVAULTSUBACCOUNTS !!!!
+// TODO: I have also made vault cache function !!!!
+// export const pullVaultAccounts = async (
+//   connection: Connection,
+//   vault: StringPublicKey,
+//   tempCache: MetaState,
+// ) => {
+
+//   const updateTemp = makeSetter(tempCache);
+//   let cacheKey;
+//   try {
+//     cacheKey = await getVaultCache(auction);
+//   } catch (e) {
+//     console.log(e);
+//     console.log('Failed to get vault cache key');
+//     return tempCache;
+//   }
+//   const cache = tempCache.auctionCaches[cacheKey]?.info;
+//   if (!cache) {
+//     console.log('-----> No vault cache exists for', auction, 'returning');
+//     return tempCache;
+//   }
+
+//   // safety deposit pull
+//   getProgramAccounts(connection, VAULT_ID, {
+//     filters: [
+//       {
+//         memcmp: {
+//           offset: 1,
+//           bytes: cache.vault,
+//         },
+//       },
+//     ],
+//   }).then(forEach(processVaultData)),
+// }
 
 export const pullPages = async (
   connection: Connection,
@@ -955,7 +1018,7 @@ export const loadAccounts = async (connection: Connection) => {
 
   const loading = [
     loadCreators().then(loadMetadata).then(loadEditions),
-    loadVaults(),
+    loadCreators().then(loadVaults),
     loadAuctions(),
     loadMetaplex(),
   ];

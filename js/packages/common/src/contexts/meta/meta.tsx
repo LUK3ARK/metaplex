@@ -26,6 +26,7 @@ import {
   pullStoreMetadata,
   pullPacks,
   pullPack,
+  pullVaults,
 } from '.';
 import { StringPublicKey, TokenAccount, useUserAccounts } from '../..';
 
@@ -134,6 +135,27 @@ export function MetaProvider({ children = null as any }) {
     return nextState;
   }
 
+  // TODO Need to finish this for a single vault page
+  // async function pullVaultPage(vaultAddress: StringPublicKey) {
+  //   if (isLoading) return state;
+  //   if (!storeAddress) {
+  //     if (isReady) {
+  //       setIsLoading(false);
+  //     }
+  //     return state;
+  //   } else if (!state.store) {
+  //     setIsLoading(true);
+  //   }
+  //   const nextState = await pullAuctionSubaccounts(
+  //     connection,
+  //     vaultAddress,
+  //     state,
+  //   );
+  //   setState(nextState);
+  //   await updateMints(nextState.metadataByMint);
+  //   return nextState;
+  // }
+
   async function pullItemsPage(
     userTokenAccounts: TokenAccount[],
   ): Promise<void> {
@@ -152,6 +174,24 @@ export function MetaProvider({ children = null as any }) {
       : state;
 
     await pullUserMetadata(userTokenAccounts, packsState);
+  }
+
+  // Pulls only vault account metadata
+  async function pullVaultItemsPage(
+    userTokenAccounts: TokenAccount[],
+  ): Promise<void> {
+    if (isLoading) {
+      return;
+    }
+    if (!storeAddress) {
+      return setIsLoading(false);
+    } else if (!state.store) {
+      setIsLoading(true);
+    }
+
+    const nextState = await pullVaults(connection, state, wallet?.publicKey);
+
+    await pullUserMetadata(userTokenAccounts, nextState);
   }
 
   async function pullPackPage(
@@ -374,6 +414,7 @@ export function MetaProvider({ children = null as any }) {
         // @ts-ignore
         pullAllSiteData,
         pullItemsPage,
+        pullVaultItemsPage,
         pullPackPage,
         pullUserMetadata,
         isLoading,

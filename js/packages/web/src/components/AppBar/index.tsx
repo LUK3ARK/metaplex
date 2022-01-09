@@ -28,6 +28,9 @@ const getDefaultLinkActions = (connected: boolean) => {
     <Link to={`/fraction/create/0`} key={'frack'}>
       <Button className="app-btn">Frack</Button>
     </Link>,
+    <Link to={`/vaults`} key={'frack'}>
+      <Button className="app-btn">Vaults</Button>
+    </Link>,
   ];
 };
 

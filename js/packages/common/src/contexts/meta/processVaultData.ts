@@ -10,6 +10,7 @@ import { VAULT_ID, pubkeyToString } from '../../utils';
 import { ParsedAccount } from '../accounts/types';
 import { ProcessAccountsFunc } from './types';
 
+// Note - this will see if given metadata is safety deposit box or a vault
 export const processVaultData: ProcessAccountsFunc = (
   { account, pubkey },
   setter,
@@ -46,11 +47,11 @@ export const processVaultData: ProcessAccountsFunc = (
   }
 };
 
-const isVaultAccount = (account: AccountInfo<Buffer>) =>
+export const isVaultAccount = (account: AccountInfo<Buffer>) =>
   account && pubkeyToString(account.owner) === VAULT_ID;
 
-const isSafetyDepositBoxV1Account = (account: AccountInfo<Buffer>) =>
+export const isSafetyDepositBoxV1Account = (account: AccountInfo<Buffer>) =>
   account.data[0] === VaultKey.SafetyDepositBoxV1;
 
-const isVaultV1Account = (account: AccountInfo<Buffer>) =>
+export const isVaultV1Account = (account: AccountInfo<Buffer>) =>
   account.data[0] === VaultKey.VaultV1;

@@ -13,6 +13,7 @@ import {
   AuctionView,
   HomeView,
   StaticPageView,
+  VaultsView,
 } from './views';
 import { AdminView } from './views/admin';
 import PackView from './views/pack';
@@ -55,6 +56,11 @@ export function Routes() {
               exact
               path="/artworks/:id?"
               component={() => <ArtworksView />}
+            />
+            <Route
+              exact
+              path="/vaults/:id?"
+              component={() => <VaultsView />}
             />
             <Route exact path="/art/:id" component={() => <ArtView />} />
             <Route exact path="/artists/:id" component={() => <ArtistView />} />

@@ -1389,6 +1389,27 @@ export async function getAuctionCache(auction: StringPublicKey) {
   )[0];
 }
 
+export async function getVaultCache(vault: StringPublicKey) {
+  const PROGRAM_IDS = programIds();
+  const store = PROGRAM_IDS.store;
+  if (!store) {
+    throw new Error('Store not initialized');
+  }
+  console.log('Vault', vault);
+  return (
+    await findProgramAddress(
+      [
+        Buffer.from(METAPLEX_PREFIX),
+        toPublicKey(PROGRAM_IDS.metaplex).toBuffer(),
+        toPublicKey(store).toBuffer(),
+        toPublicKey(vault).toBuffer(),
+        Buffer.from(CACHE),
+      ],
+      toPublicKey(PROGRAM_IDS.metaplex),
+    )
+  )[0];
+}
+
 export async function getPayoutTicket(
   auctionManager: string,
   winnerConfigIndex: number | null | undefined,
