@@ -50,6 +50,18 @@ pub const MAX_AUCTION_MANAGER_V2_SIZE: usize = 1 + //key
 1 + //status
 8 + // winning configs validated
 200; // padding
+
+// TODO
+pub const MAX_FRACTION_MANAGER_SIZE: usize = 1 + //key
+32 + // store
+32 + // authority
+32 + // vault
+32 + // token_mint
+32 + // accept_payment
+1 + // has participation
+1 + //status
+8 + // winning configs validated
+200; // padding
 pub const MAX_STORE_SIZE: usize = 2 + // Store Version Key 
 32 + // Auction Program Key
 32 + // Token Vault Program Key
@@ -65,7 +77,7 @@ pub const MAX_BID_REDEMPTION_TICKET_SIZE: usize = 3;
 pub const MAX_AUTHORITY_LOOKUP_SIZE: usize = 33;
 pub const MAX_PRIZE_TRACKING_TICKET_SIZE: usize = 1 + 32 + 8 + 8 + 8 + 50;
 pub const BASE_SAFETY_CONFIG_SIZE: usize = 1 +// Key
- 32 + // auction manager lookup
+ 32 + // auction / fraction manager lookup
  8 + // order
  1 + // winning config type
  1 + // amount tuple type
@@ -98,6 +110,7 @@ pub enum Key {
     StoreIndexerV1,
     AuctionCacheV1,
     StoreConfigV1,
+    FractionManagerV1,
 }
 
 pub struct CommonWinningIndexChecks<'a> {
@@ -127,6 +140,84 @@ pub struct PrintingV2CalculationCheckReturn {
     pub expected_redemptions: u64,
     pub winning_config_type: WinningConfigType,
     pub winning_config_item_index: Option<usize>,
+}
+
+pub trait FractionManager {
+    fn key(&self) -> Key;
+    fn store(&self) -> Pubkey;
+    fn authority(&self) -> Pubkey;
+    fn vault(&self) -> Pubkey;
+    fn accept_payment(&self) -> Pubkey;
+    fn status(&self) -> FractionManagerStatus;
+    fn set_status(&mut self, status: FractionManagerStatus);
+    fn configs_validated(&self) -> u64;
+    fn set_configs_validated(&mut self, new_configs_validated: u64);
+    fn save(&self, account: &AccountInfo) -> ProgramResult;
+    fn fast_save(
+        &self,
+        account: &AccountInfo,
+        winning_config_index: usize,
+        winning_config_item_index: usize,
+    );
+    // check if need this
+    fn common_winning_index_checks(
+        &self,
+        args: CommonWinningIndexChecks,
+    ) -> Result<CommonWinningIndexReturn, ProgramError>;
+
+    fn printing_v2_calculation_checks(
+        &self,
+        args: PrintingV2CalculationChecks,
+    ) -> Result<PrintingV2CalculationCheckReturn, ProgramError>;
+
+    fn get_participation_config(
+        &self,
+        safety_deposit_config_info: &AccountInfo,
+    ) -> Result<ParticipationConfigV2, ProgramError>;
+
+    fn add_to_collected_payment(
+        &mut self,
+        safety_deposit_config_info: &AccountInfo,
+        price: u64,
+    ) -> ProgramResult;
+
+    fn assert_legacy_printing_token_match(&self, account: &AccountInfo) -> ProgramResult;
+    
+
+    fn assert_is_valid_master_edition_v2_safety_deposit(
+        &self,
+        safety_deposit_box_order: u64,
+        safety_deposit_config_info: Option<&AccountInfo>,
+    ) -> ProgramResult;
+
+    fn mark_bid_as_claimed(&mut self, winner_index: usize) -> ProgramResult;
+
+    fn assert_all_bids_claimed(&self, auction: &AuctionData) -> ProgramResult;
+
+    fn get_number_of_unique_token_types_for_this_winner(
+        &self,
+        winner_index: usize,
+        auction_token_tracker_info: Option<&AccountInfo>,
+    ) -> Result<u128, ProgramError>;
+
+    fn get_collected_to_accept_payment(
+        &self,
+        safety_deposit_config_info: Option<&AccountInfo>,
+    ) -> Result<u128, ProgramError>;
+
+    fn get_primary_sale_happened(
+        &self,
+        metadata: &Metadata,
+        winning_config_index: Option<u8>,
+        winning_config_item_index: Option<u8>,
+    ) -> Result<bool, ProgramError>;
+
+    fn assert_winning_config_safety_deposit_validity(
+        &self,
+        safety_deposit: &SafetyDepositBox,
+        winning_config_index: Option<u8>,
+        winning_config_item_index: Option<u8>,
+    ) -> ProgramResult;
 }
 
 pub trait AuctionManager {
@@ -221,6 +312,8 @@ pub fn get_auction_manager(account: &AccountInfo) -> Result<Box<dyn AuctionManag
         _ => return Err(MetaplexError::DataTypeMismatch.into()),
     };
 }
+
+
 #[repr(C)]
 #[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
 pub struct AuctionManagerV2 {
@@ -628,6 +721,10 @@ pub enum WinningConfigType {
     PrintingV2,
     /// Means you are using a MasterEditionV2 as a participation prize.
     Participation,
+    /// Means you are fractionalising the master edition record and it's metadata ownership as well as the
+    /// token itself. The other person will be able to mint authorization tokens and make changes to the
+    /// artwork (once combined and redeemable by the new owner).
+    FractionFullRightsTransfer,
 }
 
 #[repr(C)]
@@ -638,6 +735,16 @@ pub enum AuctionManagerStatus {
     Running,
     Disbursing,
     Finished,
+}
+
+#[repr(C)]
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug, PartialEq, Copy)]
+pub enum FractionManagerStatus {
+    Initialized,
+    Validated,
+    Active,
+    Redeemable,
+    Combined,
 }
 
 #[repr(C)]
@@ -846,6 +953,21 @@ pub struct SafetyDepositConfig {
     pub participation_config: Option<ParticipationConfigV2>,
     /// if winning config type is "Participation" then you use this to keep track of it.
     pub participation_state: Option<ParticipationStateV2>,
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
+pub struct FractionSafetyDepositConfig {
+    pub key: Key,
+    /// reverse lookup
+    pub fraction_manager: Pubkey,
+    // only 255 safety deposits on vault right now but soon this will likely expand.
+    /// safety deposit order
+    pub order: u64,
+    pub amount_type: TupleNumericType,
+    pub length_type: TupleNumericType,
+    /// Tuple is (amount of editions or tokens given to people in this range, length of range)
+    pub amount_ranges: Vec<AmountRange>,
 }
 
 pub struct AmountCumulativeReturn {

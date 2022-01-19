@@ -189,7 +189,7 @@ export function MetaProvider({ children = null as any }) {
       setIsLoading(true);
     }
 
-    const nextState = await pullVaults(connection, state, wallet?.publicKey);
+    const nextState = await pullVaults(connection, state);
 
     await pullUserMetadata(userTokenAccounts, nextState);
   }

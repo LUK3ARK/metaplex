@@ -12,6 +12,7 @@ use {
     empty_payment_account::process_empty_payment_account,
     end_auction::process_end_auction,
     init_auction_manager_v2::process_init_auction_manager_v2,
+    init_fraction_manager::process_init_fraction_manager,
     redeem_bid::process_redeem_bid,
     redeem_full_rights_transfer_bid::process_full_rights_transfer_bid,
     redeem_participation_bid::process_redeem_participation_bid,
@@ -24,6 +25,7 @@ use {
     solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, msg, pubkey::Pubkey},
     start_auction::process_start_auction,
     validate_safety_deposit_box_v2::process_validate_safety_deposit_box_v2,
+    validate_fraction_safety_deposit_box_v1::process_validate_fraction_safety_deposit_box_v1,
     withdraw_master_edition::process_withdraw_master_edition,
 };
 
@@ -150,6 +152,10 @@ pub fn process_instruction<'a>(
         MetaplexInstruction::ValidateSafetyDepositBoxV2(safety_deposit_config) => {
             msg!("Instruction: Validate Safety Deposit Box V2");
             process_validate_safety_deposit_box_v2(program_id, accounts, safety_deposit_config)
+        }
+        MetaplexInstruction::ValidateFractionSafetyDepositBox(safety_deposit_config) => {
+            msg!("Instruction: Validate Fraction Safety Deposit Box V1");
+            process_validate_fraction_safety_deposit_box_v2(program_id, accounts, safety_deposit_config)
         }
         MetaplexInstruction::RedeemParticipationBidV3(args) => {
             msg!("Instruction: Redeem Participation Bid V3");
