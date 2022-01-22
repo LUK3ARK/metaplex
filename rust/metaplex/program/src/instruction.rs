@@ -1,7 +1,7 @@
 use {
     crate::{
         deprecated_state::AuctionManagerSettingsV1,
-        state::{SafetyDepositConfig, TupleNumericType, PREFIX},
+        state::{SafetyDepositConfig, FractionSafetyDepositConfig, TupleNumericType, PREFIX},
     },
     borsh::{BorshDeserialize, BorshSerialize},
     metaplex_token_metadata::state::EDITION_MARKER_BIT_SIZE,
@@ -618,7 +618,7 @@ pub enum MetaplexInstruction {
 
     /// NOTE: Requires a FractionManager
     /// TODO: FIX NOTES HERE!
-    /// Validates that a given safety deposit box has in it contents that match the given SafetyDepositConfig, and creates said config.
+    /// Validates that a given safety deposit box has in it contents that match the given FractionSafetyDepositConfig, and creates said config.
     /// A stateful call, this will error out if you call it a second time after validation has occurred.
     ///   0. `[writable]` Uninitialized Safety deposit config, pda of seed ['metaplex', program id, auction manager key, safety deposit key]
     ///   1. `[writable]` AuctionWinnerTokenTypeTracker, pda of seed ['metaplex', program id, auction manager key, 'totals']
@@ -642,7 +642,7 @@ pub enum MetaplexInstruction {
     ///   15. `[]` Token metadata program
     ///   16. `[]` System
     ///   17. `[]` Rent sysvar
-    ValidateFractionSafetyDepositBoxV1(SafetyDepositConfig),
+    ValidateFractionSafetyDepositBox(FractionSafetyDepositConfig),
 
 
 
@@ -1013,7 +1013,7 @@ pub fn create_validate_safety_deposit_box_v2_instruction(
     }
 }
 
-/// Creates an ValidateFractionSafetyDepositBoxV1 instruction
+/// Creates an ValidateFractionSafetyDepositBox instruction
 #[allow(clippy::too_many_arguments)]
 pub fn create_validate_fraction_safety_deposit_box_instruction(
     program_id: Pubkey,
@@ -1030,7 +1030,7 @@ pub fn create_validate_fraction_safety_deposit_box_instruction(
     fraction_manager_authority: Pubkey,
     metadata_authority: Pubkey,
     payer: Pubkey,
-    safety_deposit_config: SafetyDepositConfig,
+    safety_deposit_config: FractionSafetyDepositConfig,
 ) -> Instruction {
     let (validation, _) = Pubkey::find_program_address(
         &[
@@ -1064,7 +1064,7 @@ pub fn create_validate_fraction_safety_deposit_box_instruction(
     Instruction {
         program_id,
         accounts,
-        data: MetaplexInstruction::ValidateFractionSafetyDepositBoxV1(safety_deposit_config)
+        data: MetaplexInstruction::ValidateFractionSafetyDepositBox(safety_deposit_config)
             .try_to_vec()
             .unwrap(),
     }

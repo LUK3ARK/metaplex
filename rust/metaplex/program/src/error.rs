@@ -199,6 +199,10 @@ pub enum MetaplexError {
     #[error("The original authority lookup does not match the expected PDA of ['metaplex', vault key, metadata key]")]
     FractionOriginalAuthorityLookupKeyMismatch,
 
+    /// The original authority lookup does not match the expected PDA of ['metaplex', auction key, metadata key]
+    #[error("The original authority lookup does not match the expected PDA of ['metaplex', auction key, metadata key]")]
+    OriginalAuthorityLookupKeyMismatch,
+
     /// The original authority given does not match that on the original authority lookup account!
     #[error("The original authority given does not match that on the original authority lookup account!")]
     OriginalAuthorityMismatch,

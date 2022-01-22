@@ -2,7 +2,7 @@ use {
     crate::{
         error::MetaplexError,
         state::{
-            AuctionManagerStatus, AuctionManagerV2, AuctionWinnerTokenTypeTracker, Key, Store,
+            FractionManagerStatus, FractionManagerV1, Key, Store,
             TupleNumericType, MAX_FRACTION_MANAGER_SIZE, PREFIX, TOTALS,
         },
         utils::{
@@ -17,9 +17,9 @@ use {
         program_option::COption,
         pubkey::Pubkey,
     },
-    metaplex_auction::processor::{AuctionData, AuctionState, ExternalPriceAccountData]},
+    metaplex_auction::processor::{AuctionData, AuctionState},
     spl_token::state::Account,
-    metaplex_token_vault::state::{Vault, VaultState},
+    metaplex_token_vault::state::{Vault, VaultState, ExternalPriceAccount},
 };
 
 pub fn assert_common_checks(
@@ -31,10 +31,10 @@ pub fn assert_common_checks(
     store_info: &AccountInfo,
     accept_payment_info: &AccountInfo,
     authority_info: &AccountInfo,
-) -> Result<(u8, Vault, ExternalPriceAccountData), ProgramError> {
+) -> Result<(u8, Vault), ProgramError> {
     let vault = Vault::from_account_info(vault_info)?;
     let accept_payment: Account = assert_initialized(accept_payment_info)?;
-    let external_price_account: Account = assert_initialized(external_price_account_info)?;
+    let external_price_account = ExternalPriceAccount::from_account_info(external_price_account_info)?;
 
     // Assert it is real
     let store = Store::from_account_info(store_info)?;
@@ -76,11 +76,11 @@ pub fn assert_common_checks(
     //     ],
     // )?;
 
-    if token_mint != accept_payment.mint {
+    if *token_mint_info.key != accept_payment.mint {
         return Err(MetaplexError::FractionManagerAcceptPaymentMintMismatch.into());
     }
 
-    if token_mint != external_price_account.price_mint {
+    if *token_mint_info.key != external_price_account.price_mint {
         return Err(MetaplexError::FractionManagerPriceAccountMintMismatch.into());
     }
 
@@ -104,7 +104,7 @@ pub fn assert_common_checks(
         return Err(MetaplexError::VaultCannotEmpty.into());
     }
 
-    Ok((bump_seed, vault, external_price_account))
+    Ok((bump_seed, vault))
 }
 
 pub fn process_init_fraction_manager(
@@ -131,7 +131,7 @@ pub fn process_init_fraction_manager(
     let system_info = next_account_info(account_info_iter)?;
     let rent_info = next_account_info(account_info_iter)?;
 
-    let (bump_seed, _vault, _external_price_account) = assert_common_checks(
+    let (bump_seed, _vault) = assert_common_checks(
         program_id,
         fraction_manager_info,
         vault_info,
@@ -154,8 +154,7 @@ pub fn process_init_fraction_manager(
         authority_seeds,
     )?;
 
-    //let mut auction_manager = AuctionManagerV2::from_account_info(fraction_manager_info)?;
-    let mut fraction_manager = FractionManager::from_account_info(fraction_manager_info)?;
+    let mut fraction_manager = FractionManagerV1::from_account_info(fraction_manager_info)?;
 
     fraction_manager.key = Key::FractionManagerV1;
     fraction_manager.store = *store_info.key;
@@ -166,7 +165,7 @@ pub fn process_init_fraction_manager(
     //fraction_manager.state.safety_config_items_validated = 0;
     //fraction_manager.state.bids_pushed_to_accept_payment = 0;
 
-    fraction_manager.token_mint = *token_mint.key;
+    fraction_manager.token_mint = *token_mint_info.key;
 
     fraction_manager.serialize(&mut *fraction_manager_info.data.borrow_mut())?;
 

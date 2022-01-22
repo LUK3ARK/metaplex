@@ -96,33 +96,33 @@ pub struct AuctionData {
 }
 
 // TODO - MAY NEED TO FIX THIS AND CHANGE
-#[repr(C)]
-#[derive(Clone, BorshSerialize, BorshDeserialize, PartialEq, Debug)]
-pub struct ExternalPriceAccountData {
-    /// Pubkey of the authority with permission to modify this auction.
-    pub authority: Pubkey,
-    /// Pubkey of the resource being bid on.
-    /// TODO try to bring this back some day. Had to remove this due to a stack access violation bug
-    /// interactin that happens in metaplex during redemptions due to some low level rust error
-    /// that happens when AuctionData has too many fields. This field was the least used.
-    ///pub resource: Pubkey,
-    /// Token mint for the SPL token being used to bid
-    pub token_mint: Pubkey,
-    /// The time the last bid was placed, used to keep track of auction timing.
-    pub last_bid: Option<UnixTimestamp>,
-    /// Slot time the auction was officially ended by.
-    pub ended_at: Option<UnixTimestamp>,
-    /// End time is the cut-off point that the auction is forced to end by.
-    pub end_auction_at: Option<UnixTimestamp>,
-    /// Gap time is the amount of time in slots after the previous bid at which the auction ends.
-    pub end_auction_gap: Option<UnixTimestamp>,
-    /// Minimum price for any bid to meet.
-    pub price_floor: PriceFloor,
-    /// The state the auction is in, whether it has started or ended.
-    pub state: AuctionState,
-    /// Auction Bids, each user may have one bid open at a time.
-    pub bid_state: BidState,
-}
+// #[repr(C)]
+// #[derive(Clone, BorshSerialize, BorshDeserialize, PartialEq, Debug)]
+// pub struct ExternalPriceAccountData {
+//     /// Pubkey of the authority with permission to modify this auction.
+//     pub authority: Pubkey,
+//     /// Pubkey of the resource being bid on.
+//     /// TODO try to bring this back some day. Had to remove this due to a stack access violation bug
+//     /// interactin that happens in metaplex during redemptions due to some low level rust error
+//     /// that happens when AuctionData has too many fields. This field was the least used.
+//     ///pub resource: Pubkey,
+//     /// Token mint for the SPL token being used to bid
+//     pub token_mint: Pubkey,
+//     /// The time the last bid was placed, used to keep track of auction timing.
+//     pub last_bid: Option<UnixTimestamp>,
+//     /// Slot time the auction was officially ended by.
+//     pub ended_at: Option<UnixTimestamp>,
+//     /// End time is the cut-off point that the auction is forced to end by.
+//     pub end_auction_at: Option<UnixTimestamp>,
+//     /// Gap time is the amount of time in slots after the previous bid at which the auction ends.
+//     pub end_auction_gap: Option<UnixTimestamp>,
+//     /// Minimum price for any bid to meet.
+//     pub price_floor: PriceFloor,
+//     /// The state the auction is in, whether it has started or ended.
+//     pub state: AuctionState,
+//     /// Auction Bids, each user may have one bid open at a time.
+//     pub bid_state: BidState,
+// }
 
 // Alias for auction name.
 pub type AuctionName = [u8; 32];
