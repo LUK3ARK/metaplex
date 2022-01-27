@@ -29,7 +29,7 @@ import {
   Creator,
   PriceFloor,
   PriceFloorType,
-  IPartialCreateAuctionArgs,
+  IPartialCreateFractionArgs,
   MetadataKey,
   StringPublicKey,
   WRAPPED_SOL_MINT,
@@ -57,9 +57,7 @@ import {
   TupleNumericType,
 } from '@oyster/common/dist/lib/models/metaplex/index';
 import moment from 'moment';
-import {
-  SafetyDepositDraft,
-} from '../../actions/createAuctionManager';
+import { FractionSafetyDepositDraft } from '../../actions/createFractionManager';
 import BN from 'bn.js';
 import { constants, createTokenAccount, approve } from '@oyster/common';
 import { DateTimePicker } from '../../components/DateTimePicker';
@@ -79,7 +77,7 @@ import { activateFractionVault } from '../../actions/activateFractionVault';
 import { AccountLayout } from '@solana/spl-token';
 import { markItemsThatArentMineAsSold } from '../../actions/markItemsThatArentMineAsSold';
 import { setVaultFractionAuthorities } from '../../actions/setVaultFractionAuthorities';
-import { validateBoxes } from '../../actions/createAuctionManager';
+import { createFractionManager } from '../../actions/createFractionManager';
 
 const { Option } = Select;
 const { Step } = Steps;
@@ -95,36 +93,11 @@ interface arrayPattern {
   signers: Keypair[][];
 }
 
-interface byType {
-  markItemsThatArentMineAsSold: arrayPattern;
-  addTokens: arrayPattern;
-  activateVault: normalPattern;
-  validateBoxes: arrayPattern;
-  createVault: normalPattern;
-  setVaultFractionAuthorities: normalPattern;
-  externalFractionPriceAccount: normalPattern;
-}
-
-export interface IPartialCreateFractionArgs {
-  /// Token mint for the SPL token used for bidding.
-  tokenMint: StringPublicKey;
-
-  /// Ticker name of the fraction to be created
-  ticker: string | null;
-
-  /// Total supply of the fractions to make
-  maxSupply: BN;
-
-  /// Price required to buyout the NFT item(s) from the vault
-  buyoutPrice: BN;
-
-}
-
 
 export interface FractionState {
 
   // listed NFTs
-  items: SafetyDepositDraft[];
+  items: FractionSafetyDepositDraft[];
 
   // Amount required for an address to purchase the item
   buyoutPrice: number;
@@ -135,8 +108,9 @@ export interface FractionState {
   // The ticker name of the fractions created. set to a maximum of 4 (to start)
   ticker: string;
 
-  // The category of fractionalisation this is
-  //category: FractionCategory;
+  quoteMintAddress: string;
+  quoteMintInfo: MintInfo;
+  quoteMintInfoExtended: TokenInfo;
 }
 
 
@@ -151,13 +125,28 @@ export const FractionCreateView = () => {
 
   const [step, setStep] = useState<number>(0);
   const [stepsVisible, setStepsVisible] = useState<boolean>(true);
+  const [fractionObj, setFractionObj] =
+    useState<
+      | {
+          vault: StringPublicKey;
+          fractionManager: StringPublicKey;
+          fractionalMint: StringPublicKey;
+        }
+      | undefined
+    >(undefined);
   const [attributes, setAttributes] = useState<FractionState>({
     items: [],
     buyoutPrice: 0,
     fractionSupply: 0,
     ticker: "",
+    quoteMintAddress: '',
+    //@ts-ignore
+    quoteMintInfo: undefined,
+    //@ts-ignore
+    quoteMintInfoExtended: undefined,
   });
 
+  // TODO - WHAT ARE THESE FOR?
   const [quoteMintAddress, setQuoteMintAddress] = useState<string>()
   const [quoteMintInfo, setQuoteMintInfo] = useState<MintInfo>()
   const [quoteMintInfoExtended, setQuoteMintInfoExtended] = useState<TokenInfo>()
@@ -177,7 +166,8 @@ export const FractionCreateView = () => {
     // Ensure wallet is provided
     if(wallet && wallet.publicKey) {
 
-      // NOTE: Called partial fraction args as it is not all of the arguments!! later on in logic authority is added I think
+      // todo NOTE: Called partial fraction args as it is not all of the arguments!! later on in logic authority is added I think
+      // MIGHT NEED TO add priceTick and other stuff, but this is likely to be taken care of when implementing serum
       const fractionVaultSettings: IPartialCreateFractionArgs = {
         tokenMint: QUOTE_MINT.toBase58(),
         maxSupply: new BN(attributes.fractionSupply * LAMPORTS_PER_SOL),
@@ -186,216 +176,20 @@ export const FractionCreateView = () => {
       };
 
       const safetyDepositDrafts = attributes.items;
-      if (safetyDepositDrafts.length > 0) {
-        safetyDepositDrafts.forEach((s, i) => {
-          s.amountRanges = [
-            new AmountRange({
-              amount: new BN(1),
-              length: new BN(safetyDepositDrafts.length),
-            }),
-          ];
-        });  
-      }
-      console.log("number of safetyDeposits in draft: " + safetyDepositDrafts.length);
-    
-      const {
-        externalPriceAccount,
-        priceMint,
-        instructions: epaInstructions,
-        signers: epaSigners,
-      } = await createExternalFractionPriceAccount(connection, wallet, fractionVaultSettings.maxSupply, fractionVaultSettings.buyoutPrice);
-      
-      const {
-        instructions: createVaultInstructions,
-        signers: createVaultSigners,
-        vault,
-        fractionalMint,
-        redeemTreasury,
-        fractionTreasury,
-      } = await createVault(connection, wallet, priceMint, externalPriceAccount);
 
-      const safetyDepositConfigs =
-      await buildSafetyDepositArray(
-        wallet,
-        safetyDepositDrafts,
-      );
-
-      const {
-        instructions: addTokenInstructions,
-        signers: addTokenSigners,
-        safetyDepositTokenStores,
-      } = await addTokensToVault(connection, wallet, vault, safetyDepositConfigs);
-
-      console.log("tokens added to vault and max supply is -- " + fractionVaultSettings.maxSupply);
-
-      // Do fractionalisation stuff
-      if (!wallet.publicKey) throw new WalletNotConnectedError();
-
-      const accountRentExempt = await connection.getMinimumBalanceForRentExemption(
-        AccountLayout.span,
-      );
-
-      const {
-        instructions: activateVaultInstructions,
-        signers: activateVaultSigners,
-      } = 
-      await activateFractionVault(
+      // todo - market pool size just set as 0 for now
+      const _fractionObj = await createFractionManager(
         connection,
         wallet,
-        vault,
-        fractionVaultSettings.maxSupply,
-        fractionalMint,
-        fractionTreasury,
+        whitelistedCreatorsByCreator,
+        fractionVaultSettings,
+        safetyDepositDrafts,
+        attributes.quoteMintAddress,
+        new BN(0),
       );
+      setFractionObj(_fractionObj);
 
-      // IMPORTANT TODO!!!!!
-      // TODO
-      // for now, just putting as dummy value. In reality, this will be the contract I create
-      const fractionManager = VAULT_ID;
-
-      // TODO if eventually add fraction manager, need to add section here for initfraction manager instructions
-      // + cachefractionindexer or something
-      const lookup: byType = {
-        markItemsThatArentMineAsSold: await markItemsThatArentMineAsSold(
-          wallet,
-          safetyDepositDrafts,
-        ),
-        externalFractionPriceAccount: {
-          instructions: epaInstructions,
-          signers: epaSigners,
-        },
-        createVault: {
-          instructions: createVaultInstructions,
-          signers: createVaultSigners,
-        },
-        addTokens: { instructions: addTokenInstructions, signers: addTokenSigners },
-        activateVault: { instructions: activateVaultInstructions, signers: activateVaultSigners },
-        setVaultFractionAuthorities: await setVaultFractionAuthorities(
-          wallet,
-          vault,
-          fractionManager,
-        ),
-        // TODO add validation for participation NFTs
-        validateBoxes: await validateBoxes(
-          wallet,
-          whitelistedCreatorsByCreator,
-          vault,
-          safetyDepositConfigs,
-          safetyDepositTokenStores,
-        ),
-      };
-
-      // TODO FIX VALIDATION OF BOXES ^^
-
-      const signers: Keypair[][] = [
-        ...lookup.markItemsThatArentMineAsSold.signers,
-        lookup.externalFractionPriceAccount.signers,
-        lookup.createVault.signers,
-        ...lookup.addTokens.signers,
-        lookup.activateVault.signers,
-        lookup.setVaultFractionAuthorities.signers,
-        ...lookup.validateBoxes.signers,
-      ];
-
-      for(var i=0; i < signers.length; i++) {
-        console.log("for i = " + i + "    length of signers is " + signers[i].length);
-      }
-      const toRemoveSigners: Record<number, boolean> = {};
-      let instructions: TransactionInstruction[][] = [
-        ...lookup.markItemsThatArentMineAsSold.instructions,
-        lookup.externalFractionPriceAccount.instructions,
-        lookup.createVault.instructions,
-        ...lookup.addTokens.instructions,
-        lookup.activateVault.instructions,
-        lookup.setVaultFractionAuthorities.instructions,
-        ...lookup.validateBoxes.instructions,
-      ].filter((instr, i) => {
-        if (instr.length > 0) {
-          return true;
-        } else {
-          toRemoveSigners[i] = true;
-          return false;
-        }
-      });
-
-      // debug
-      for(var i=0; i < instructions.length; i++) {
-        console.log("for i = " + i + "    length of instructions is " + instructions[i].length);
-      }
-
-      let filteredSigners = signers.filter((_, i) => !toRemoveSigners[i]);
-
-      let stopPoint = 0;
-      let tries = 0;
-      let lastInstructionsLength: number | null = null;
-      while (stopPoint < instructions.length && tries < 3) {
-        instructions = instructions.slice(stopPoint, instructions.length);
-        filteredSigners = filteredSigners.slice(stopPoint, filteredSigners.length);
-
-        if (instructions.length === lastInstructionsLength) tries = tries + 1;
-        else tries = 0;
-
-        try {
-          if (instructions.length === 1) {
-            await sendTransactionWithRetry(
-              connection,
-              wallet,
-              instructions[0],
-              filteredSigners[0],
-              'single',
-            );
-            stopPoint = 1;
-          } else {
-            stopPoint = await sendTransactions(
-              connection,
-              wallet,
-              instructions,
-              filteredSigners,
-              SequenceType.StopOnFailure,
-              'single',
-            );
-          }
-        } catch (e) {
-          console.error(e);
-        }
-        console.log(
-          'Died on ',
-          stopPoint,
-          'retrying from instruction',
-          instructions[stopPoint],
-          'instructions length is',
-          instructions.length,
-        );
-        lastInstructionsLength = instructions.length;
-      }
-
-      console.log("Finished. vault: " + vault);
-      console.log("Finished. fractionalTreasury: " + fractionTreasury);
-      console.log("Finished. fractionalMint: " + fractionalMint);
-
-
-
-
-      // IMPORTANT
-      // So, after activating the vault, 
-      // fractionalMint is the address who can mint new 
-      // const outstandingShareAccount = createTokenAccount(
-      //   instructions,
-      //   wallet.publicKey,
-      //   accountRentExempt,
-      //   toPublicKey(fractionalMint),
-      //   wallet.publicKey,
-      //   signers,
-      // );
-
-      // const payingTokenAccount = createTokenAccount(
-      //   instructions,
-      //   wallet.publicKey,
-      //   accountRentExempt,
-      //   toPublicKey(priceMint),
-      //   wallet.publicKey,
-      //   signers,
-      // );
+      console.log("number of safetyDeposits in draft: " + safetyDepositDrafts.length);
 
     }else {
       // TODO catch when user wallet isnt defined. can a user get to this point?
@@ -486,11 +280,29 @@ const CopiesStep = (props: {
   setAttributes: (attr: FractionState) => void;
   confirm: () => void;
 }) => {
-  let artistFilter = (i: SafetyDepositDraft) =>
+  const [showTokenDialog, setShowTokenDialog] = useState(false);
+  const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
+  // give default value to mint
+
+  const { hasOtherTokens, tokenMap} = useTokenList();
+
+  // give default value to mint
+  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
+
+  props.attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
+
+  // if (props.attributes.quoteMintAddress) {
+  //   props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
+  //   props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
+  // }
+  // props.setAttributes({...props.attributes});
+
+
+  let artistFilter = (i: FractionSafetyDepositDraft) =>
     !(i.metadata.info.data.creators || []).find((c: Creator) => !c.verified);
 
-  // MIGHT NEED FILTERS IN THE FUTURE 
-  let filter: (i: SafetyDepositDraft) => boolean = (i: SafetyDepositDraft) =>
+  // TODO MIGHT NEED FILTERS IN THE FUTURE 
+  let filter: (i: FractionSafetyDepositDraft) => boolean = (i: FractionSafetyDepositDraft) =>
     true;
   // if (props.attributes.category === FractionCategory.Limited) {
   //   filter = (i: SafetyDepositDraft) =>
@@ -504,7 +316,7 @@ const CopiesStep = (props: {
   //     );
   // }
 
-  let overallFilter = (i: SafetyDepositDraft) => filter(i) && artistFilter(i);
+  let overallFilter = (i: FractionSafetyDepositDraft) => filter(i) && artistFilter(i);
 
   return (
     <>
@@ -812,69 +624,3 @@ const Congrats = (props: {
     </>
   );
 };
-
-// TODO : TRY TO ADD PARTICIPATION BACK
-async function buildSafetyDepositArray(
-  wallet: WalletSigner,
-  safetyDeposits: SafetyDepositDraft[],
-): Promise<SafetyDepositInstructionTemplate[]> {
-  if (!wallet.publicKey) throw new WalletNotConnectedError();
-  console.log("OMG LOOK HERE!!!!!")
-  safetyDeposits.forEach((s, i ) => {
-    console.log("sfaety are " + s + "anddddD" + i);
-  })
-  const safetyDepositTemplates: SafetyDepositInstructionTemplate[] = [];
-  safetyDeposits.forEach((s, i) => {
-    const maxAmount = [...s.amountRanges.map(a => a.amount)]
-      .sort()
-      .reverse()[0];
-
-    const maxLength = [...s.amountRanges.map(a => a.length)]
-      .sort()
-      .reverse()[0];
-    safetyDepositTemplates.push({
-      box: {
-        tokenAccount:
-          s.winningConfigType !== WinningConfigType.PrintingV1
-            ? s.holding
-            : s.printingMintHolding,
-        tokenMint:
-          s.winningConfigType !== WinningConfigType.PrintingV1
-            ? s.metadata.info.mint
-            : (s.masterEdition as ParsedAccount<MasterEditionV1>)?.info
-                .printingMint,
-        amount:
-          s.winningConfigType == WinningConfigType.PrintingV2 ||
-          s.winningConfigType == WinningConfigType.FullRightsTransfer
-            ? new BN(1)
-            : new BN(
-                s.amountRanges.reduce(
-                  (acc, r) => acc.add(r.amount.mul(r.length)),
-                  new BN(0),
-                ),
-              ),
-      },
-      config: new SafetyDepositConfig({
-        directArgs: {
-          auctionManager: SystemProgram.programId.toBase58(),
-          order: new BN(i),
-          amountRanges: s.amountRanges,
-          amountType: maxAmount.gte(new BN(254))
-            ? TupleNumericType.U16
-            : TupleNumericType.U8,
-          lengthType: maxLength.gte(new BN(254))
-            ? TupleNumericType.U16
-            : TupleNumericType.U8,
-          winningConfigType: s.winningConfigType,
-          participationConfig: null,
-          participationState: null,
-        },
-      }),
-      draft: s,
-    });
-  });
-
-
-  console.log('Temps', safetyDepositTemplates);
-  return safetyDepositTemplates;
-}

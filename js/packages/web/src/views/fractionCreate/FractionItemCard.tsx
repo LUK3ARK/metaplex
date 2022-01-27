@@ -2,10 +2,10 @@ import React from 'react';
 import { ArtCard } from '../../components/ArtCard';
 import PackCard from '../../components/PackCard';
 import { useMeta } from '../../contexts';
-import { SafetyDepositDraft } from '../../actions/createAuctionManager';
+import { FractionSafetyDepositDraft } from '../../actions/createFractionManager';
 
 interface IFractionItemCard {
-  current: SafetyDepositDraft;
+  current: FractionSafetyDepositDraft;
   isSelected?: boolean;
   onSelect: () => void;
   onClose?: () => void;

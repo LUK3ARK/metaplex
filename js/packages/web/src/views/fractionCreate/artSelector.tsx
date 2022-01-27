@@ -1,20 +1,24 @@
 import React, { useMemo, useState } from 'react';
 import { Row, Button, Modal, ButtonProps } from 'antd';
-import { useUserArts } from '../../hooks';
-import { SafetyDepositDraft } from '../../actions/createAuctionManager';
+import { useUserArtsAsFractionDrafts } from '../../hooks';
 import FractionItemCard from './FractionItemCard';
+import { FractionSafetyDepositDraft } from '../../actions/createFractionManager';
+import { SafetyDepositDraft } from '../../actions/createAuctionManager';
+import { SafetyDepositConfig, FractionSafetyDepositConfig } from '@oyster/common';
 
 export interface ArtSelectorProps extends ButtonProps {
-  selected: SafetyDepositDraft[];
-  setSelected: (selected: SafetyDepositDraft[]) => void;
+  selected: FractionSafetyDepositDraft[];
+  setSelected: (selected: FractionSafetyDepositDraft[]) => void;
   allowMultiple: boolean;
-  filter?: (i: SafetyDepositDraft) => boolean;
+  filter?: (i: FractionSafetyDepositDraft) => boolean;
 }
 
 export const ArtSelector = (props: ArtSelectorProps) => {
   const { selected, setSelected, allowMultiple, ...rest } = props;
-  let items = useUserArts();
-  if (props.filter) items = items.filter(props.filter);
+  let fractionItems = useUserArtsAsFractionDrafts();
+
+  // Convert 
+  if (props.filter) fractionItems = fractionItems.filter(props.filter);
   const selectedItems = useMemo<Set<string>>(
     () => new Set(selected.map(item => item.metadata.pubkey)),
     [selected],
@@ -87,7 +91,7 @@ export const ArtSelector = (props: ArtSelectorProps) => {
           style={{ overflowY: 'auto', height: '50vh' }}
         >
           <div className="artwork-grid">
-            {items.map(m => {
+            {fractionItems.map(m => {
               const id = m.metadata.pubkey;
               const isSelected = selectedItems.has(id);
 
@@ -101,7 +105,7 @@ export const ArtSelector = (props: ArtSelectorProps) => {
                   ? new Set(list.filter(item => item !== id))
                   : new Set([...list, id]);
 
-                const selected = items.filter(item =>
+                const selected = fractionItems.filter(item =>
                   newSet.has(item.metadata.pubkey),
                 );
                 setSelected(selected);
@@ -129,3 +133,28 @@ export const ArtSelector = (props: ArtSelectorProps) => {
     </>
   );
 };
+
+
+// TODO - Before delete this just make sure that amount ranges is taken cared of in the fraction process
+// export interface FractionSafetyDepositDraft {
+//   metadata: ParsedAccount<Metadata>;
+//   masterEdition?: ParsedAccount<MasterEditionV1 | MasterEditionV2>;
+//   edition?: ParsedAccount<Edition>;
+//   holding: StringPublicKey;
+//   printingMintHolding?: StringPublicKey;
+//   fractionWinningConfigType: FractionWinningConfigType;
+//   amountRanges: AmountRange[];
+//   participationConfig?: ParticipationConfigV2;
+// }
+
+
+// export interface SafetyDepositDraft {
+//   metadata: ParsedAccount<Metadata>;
+//   masterEdition?: ParsedAccount<MasterEditionV1 | MasterEditionV2>;
+//   edition?: ParsedAccount<Edition>;
+//   holding: StringPublicKey;
+//   printingMintHolding?: StringPublicKey;
+//   winningConfigType: WinningConfigType;
+//   amountRanges: AmountRange[];
+//   participationConfig?: ParticipationConfigV2;
+// }

@@ -63,6 +63,7 @@ export async function createExternalPriceAccount(
 
   await updateExternalPriceAccount(key, epaStruct, instructions);
 
+  // TODO - Add return here for token in terms of price mint
   return {
     externalPriceAccount: key,
     priceMint: QUOTE_MINT.toBase58(),

@@ -95,8 +95,8 @@ pub enum MetaplexError {
     #[error("The token metadata program given does not match the token metadata program on this auction manager!")]
     AuctionManagerTokenMetadataProgramMismatch,
 
-    /// The token metadata program given does not match the token metadata program on this auction manager!
-    #[error("The token metadata program given does not match the token metadata program on this auction manager!")]
+    /// The token metadata program given does not match the token metadata program on this fraction manager!
+    #[error("The token metadata program given does not match the token metadata program on this fraction manager!")]
     FractionManagerTokenMetadataProgramMismatch,
 
     /// The mint is owned by a different token program than the one used by this auction manager!

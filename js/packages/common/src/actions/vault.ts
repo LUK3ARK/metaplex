@@ -27,6 +27,8 @@ export const MAX_VAULT_SIZE =
   1 + 32 + 32 + 32 + 32 + 1 + 32 + 1 + 32 + 1 + 1 + 8;
 
 export const MAX_EXTERNAL_ACCOUNT_SIZE = 1 + 8 + 32 + 1;
+export const MAX_FRACTION_MANAGER_SIZE = 1 + 32 + 32 + 32 +32 + 32 + 1 + 1 + 8 + 8;
+
 export class Vault {
   key: VaultKey;
   /// Store token program used
@@ -165,6 +167,21 @@ class UpdateExternalPriceAccountArgs {
   constructor(args: { externalPriceAccount: ExternalPriceAccount }) {
     this.externalPriceAccount = args.externalPriceAccount;
   }
+}
+
+export interface IPartialCreateFractionArgs {
+  /// Token mint for the SPL token used for bidding.
+  tokenMint: StringPublicKey;
+
+  /// Ticker name of the fraction to be created
+  ticker: string | null;
+
+  /// Total supply of the fractions to make
+  maxSupply: BN;
+
+  /// Price required to buyout the NFT item(s) from the vault
+  buyoutPrice: BN;
+
 }
 
 export const VAULT_SCHEMA = new Map<any, any>([

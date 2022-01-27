@@ -6,17 +6,16 @@ import {
 import { serialize } from 'borsh';
 
 import {
-  getAuctionKeys,
-  getAuctionWinnerTokenTypeTracker,
-  getOriginalAuthority,
+  getFractionManagerKey,
+  getFractionOriginalAuthority,
   getSafetyDepositConfig,
-  SafetyDepositConfig,
+  FractionSafetyDepositConfig,
   SCHEMA,
-  ValidateSafetyDepositBoxV2Args,
+  ValidateFractionSafetyDepositBoxArgs,
 } from '.';
 import { programIds, toPublicKey, StringPublicKey } from '../../utils';
 
-export async function validateFractionSafetyDepositBoxV2(
+export async function validateFractionSafetyDepositBox(
   vault: StringPublicKey,
   metadata: StringPublicKey,
   safetyDepositBox: StringPublicKey,
@@ -29,27 +28,24 @@ export async function validateFractionSafetyDepositBoxV2(
   edition: StringPublicKey,
   whitelistedCreator: StringPublicKey | undefined,
   store: StringPublicKey,
-  safetyDepositConfig: SafetyDepositConfig,
+  safetyDepositConfig: FractionSafetyDepositConfig,
+  fractionalMint: StringPublicKey,
 ) {
   const PROGRAM_IDS = programIds();
 
-  const { auctionKey, auctionManagerKey } = await getAuctionKeys(vault);
+  const fractionManagerKey = await getFractionManagerKey(vault, fractionalMint);
 
-  const originalAuthorityLookup = await getOriginalAuthority(
-    auctionKey,
+  const originalAuthorityLookup = await getFractionOriginalAuthority(
+    vault,
     metadata,
   );
 
   const safetyDepositConfigKey = await getSafetyDepositConfig(
-    auctionManagerKey,
+    fractionManagerKey,
     safetyDepositBox,
   );
 
-  const tokenTracker = await getAuctionWinnerTokenTypeTracker(
-    auctionManagerKey,
-  );
-
-  const value = new ValidateSafetyDepositBoxV2Args(safetyDepositConfig);
+  const value = new ValidateFractionSafetyDepositBoxArgs(safetyDepositConfig);
   const data = Buffer.from(serialize(SCHEMA, value));
 
   const keys = [
@@ -59,12 +55,7 @@ export async function validateFractionSafetyDepositBoxV2(
       isWritable: true,
     },
     {
-      pubkey: toPublicKey(tokenTracker),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: toPublicKey(auctionManagerKey),
+      pubkey: toPublicKey(fractionManagerKey),
       isSigner: false,
       isWritable: true,
     },
@@ -114,7 +105,7 @@ export async function validateFractionSafetyDepositBoxV2(
       isWritable: false,
     },
     {
-      pubkey: toPublicKey(auctionManagerAuthority),
+      pubkey: toPublicKey(fractionManagerAuthority),
       isSigner: true,
       isWritable: false,
     },

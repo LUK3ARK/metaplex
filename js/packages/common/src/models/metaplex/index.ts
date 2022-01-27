@@ -37,6 +37,8 @@ export * from './redeemParticipationBidV3';
 export * from './redeemPrintingV2Bid';
 export * from './withdrawMasterEdition';
 export * from './deprecatedStates';
+export * from './initFractionManager';
+export * from './validateFractionSafetyDepositBox';
 
 export const METAPLEX_PREFIX = 'metaplex';
 export const INDEX = 'index';
@@ -518,8 +520,27 @@ export enum WinningConfigType {
   PrintingV2,
   /// Means you are using a MasterEditionV2 as a participation prize.
   Participation,
-  /// Means you are fractionalising this edition (MasterEditionV2 / Limited / Open edition)
-  Fractionalise,
+}
+
+export enum FractionWinningConfigType {
+  // TODO - FIX NOTES
+    /// You may be selling your one-of-a-kind NFT for the first time, but not it's accompanying Metadata,
+    /// of which you would like to retain ownership. You get 100% of the payment the first sale, then
+    /// royalties forever after.
+    ///
+    /// You may be re-selling something like a Limited/Open Edition print from another auction,
+    /// a master edition record token by itself (Without accompanying metadata/printing ownership), etc.
+    /// This means artists will get royalty fees according to the top level royalty % on the metadata
+    /// split according to their percentages of contribution.
+    ///
+    /// No metadata ownership is transferred in this instruction, which means while you may be transferring
+    /// the token for a limited/open edition away, you would still be (nominally) the owner of the limited edition
+    /// metadata, though it confers no rights or privileges of any kind.
+    FractionMasterEdtionV2,
+    /// Means you are fractionalising the master edition record and it's metadata ownership as well as the
+    /// token itself. The other person will be able to mint authorization tokens and make changes to the
+    /// artwork (once combined and redeemable by the new owner).
+    FractionToken,
 }
 
 export const decodeStoreIndexer = (buffer: Buffer) => {
@@ -718,6 +739,17 @@ export class InitAuctionManagerV2Args {
   }
 }
 
+export class InitFractionManagerArgs {
+  instruction = 24;
+  orderbookMarketPoolSize: BN = new BN(0);
+
+  constructor(args: {
+    orderbookMarketPoolSize: BN;
+  }) {
+    this.orderbookMarketPoolSize = args.orderbookMarketPoolSize;
+  }
+}
+
 export class SafetyDepositConfig {
   key: MetaplexKey = MetaplexKey.SafetyDepositConfigV1;
   auctionManager: StringPublicKey = SystemProgram.programId.toBase58();
@@ -831,11 +863,62 @@ export class SafetyDepositConfig {
   }
 }
 
+export class FractionSafetyDepositConfig {
+  key: MetaplexKey = MetaplexKey.SafetyDepositConfigV1;
+  fractionManager: StringPublicKey = SystemProgram.programId.toBase58();
+  order: BN = new BN(0);
+  fractionWinningConfigType: FractionWinningConfigType = FractionWinningConfigType.FractionToken;
+
+  constructor(args: {
+    data?: Uint8Array;
+    directArgs?: {
+      fractionManager: StringPublicKey;
+      order: BN;
+      fractionWinningConfigType: FractionWinningConfigType;
+    };
+  }) {
+    if (args.directArgs) {
+      Object.assign(this, args.directArgs);
+    } else if (args.data) {
+
+      this.fractionManager = bs58.encode(args.data.slice(1, 33));
+      this.order = new BN(args.data.slice(33, 41), 'le');
+      this.fractionWinningConfigType = args.data[41];
+    }
+  }
+
+  // TODO - Maybe can bring this and other function out as common in both this and normal safetydepositconfigs
+  getBNFromData(
+    data: Uint8Array,
+    offset: number,
+    dataType: TupleNumericType,
+  ): BN {
+    switch (dataType) {
+      case TupleNumericType.U8:
+        return new BN(data[offset], 'le');
+      case TupleNumericType.U16:
+        return new BN(data.slice(offset, offset + 2), 'le');
+      case TupleNumericType.U32:
+        return new BN(data.slice(offset, offset + 4), 'le');
+      case TupleNumericType.U64:
+        return new BN(data.slice(offset, offset + 8), 'le');
+    }
+  }
+}
+
 export class ValidateSafetyDepositBoxV2Args {
   instruction = 18;
   safetyDepositConfig: SafetyDepositConfig;
   constructor(safetyDeposit: SafetyDepositConfig) {
     this.safetyDepositConfig = safetyDeposit;
+  }
+}
+
+export class ValidateFractionSafetyDepositBoxArgs {
+  instruction = 25;
+  fractionSafetyDepositConfig: FractionSafetyDepositConfig;
+  constructor(fractionSafetyDeposit: FractionSafetyDepositConfig) {
+    this.fractionSafetyDepositConfig = fractionSafetyDeposit;
   }
 }
 
@@ -994,6 +1077,18 @@ export const SCHEMA = new Map<any, any>([
     },
   ],
   [
+    FractionSafetyDepositConfig,
+    {
+      kind: 'struct',
+      fields: [
+        ['key', 'u8'],
+        ['fractionManager', 'pubkeyAsString'],
+        ['order', 'u64'],
+        ['fractionWinningConfigType', 'u8'],
+      ],
+    },
+  ],
+  [
     RedeemUnusedWinningConfigItemsAsAuctioneerArgs,
     {
       kind: 'struct',
@@ -1053,12 +1148,31 @@ export const SCHEMA = new Map<any, any>([
     },
   ],
   [
+    InitFractionManagerArgs,
+    {
+      kind: 'struct',
+      fields: [
+        ['orderbookMarketPoolSize', 'u64'],
+      ],
+    },
+  ],
+  [
     ValidateSafetyDepositBoxV2Args,
     {
       kind: 'struct',
       fields: [
         ['instruction', 'u8'],
         ['safetyDepositConfig', SafetyDepositConfig],
+      ],
+    },
+  ],
+  [
+    ValidateFractionSafetyDepositBoxArgs,
+    {
+      kind: 'struct',
+      fields: [
+        ['instruction', 'u8'],
+        ['fractionSafetyDepositConfig', FractionSafetyDepositConfig],
       ],
     },
   ],
@@ -1152,6 +1266,20 @@ export const SCHEMA = new Map<any, any>([
     },
   ],
 ]);
+
+export async function getFractionManagerKey(
+  vault: string,
+  fractionMint: string,
+): Promise<string> {
+  const PROGRAM_IDS = programIds();
+
+  return (
+    await findProgramAddress(
+      [Buffer.from(METAPLEX_PREFIX), toPublicKey(vault).toBuffer(), toPublicKey(fractionMint).toBuffer()],
+      toPublicKey(PROGRAM_IDS.metaplex),
+    )
+  )[0];
+}
 
 export async function getAuctionManagerKey(
   vault: string,
@@ -1248,6 +1376,25 @@ export async function getOriginalAuthority(
   )[0];
 }
 
+// TODO!!
+export async function getFractionOriginalAuthority(
+  vault: string,
+  metadata: string,
+): Promise<string> {
+  const PROGRAM_IDS = programIds();
+
+  return (
+    await findProgramAddress(
+      [
+        Buffer.from(METAPLEX_PREFIX),
+        toPublicKey(vault).toBuffer(),
+        toPublicKey(metadata).toBuffer(),
+      ],
+      toPublicKey(PROGRAM_IDS.metaplex),
+    )
+  )[0];
+}
+
 export const isCreatorPartOfTheStore = async (
   creatorAddress: StringPublicKey,
   pubkey: StringPublicKey,
@@ -1324,8 +1471,9 @@ export async function getAuctionWinnerTokenTypeTracker(auctionManager: string) {
   )[0];
 }
 
+// For both auctions and fractions
 export async function getSafetyDepositConfig(
-  auctionManager: string,
+  manager: string,
   safetyDeposit: string,
 ) {
   const PROGRAM_IDS = programIds();
@@ -1339,7 +1487,7 @@ export async function getSafetyDepositConfig(
       [
         Buffer.from(METAPLEX_PREFIX),
         toPublicKey(PROGRAM_IDS.metaplex).toBuffer(),
-        toPublicKey(auctionManager).toBuffer(),
+        toPublicKey(manager).toBuffer(),
         toPublicKey(safetyDeposit).toBuffer(),
       ],
       toPublicKey(PROGRAM_IDS.metaplex),

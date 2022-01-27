@@ -31,13 +31,13 @@ Going from **Activated** to **Combined** has only one restraint - that there are
 
 Once the vault is **Activated**, you can then mint treasury shares that represent fractional ownership of the tokens inside the vault. The treasury shares are valued based on an external price indicator account that does not need to be owned by the vault and is considered the vault's price oracle, and these shares can then be sold on a dex or in an AMM or whatever you desire. This allows you, as the vault owner, to take your NFT(s) and turn them into a sort of corporation and sell partial ownership to other parties. If the external price oracle has its price driven by a proper third party such as a dex or other price discovery mechanism, then the entire system is balanced.
 
-When there are outstanding shares, you cannot, as the vault owner, **Combine** the vault, and retrieve your tokens, until you buy out the shares in circulation. You have to provide the number_of_shares_outstanding*price_from_oracle in the token_mint of the vault to the vault to unlock it. Then shareholders can return at their leisure to trade in shares for their winnings.
+When there are outstanding shares, you cannot, as the vault owner, **Combine** the vault, and retrieve your tokens, until you buy out the shares in circulation. You have to provide the number_of_shares_outstanding\*price_from_oracle in the token_mint of the vault to the vault to unlock it. Then shareholders can return at their leisure to trade in shares for their winnings.
 
 ### Auction
 
 The Auction Contract represents an auction primitive, and it knows nothing about NFTs, or Metadata, or anything else in the Metaplex ecosystem. All it cares about is that it has a resource address, it has auction mechanics, and it is using those auction mechanics to auction off that resource. It currently supports English Auctions and Open Edition Auctions (no winners but bids are tracked.) Its only purpose is to track who won what place in an auction and to collect money for those wins. When you place bids, or cancel them, you are interacting with this contract. However, when you redeem bids, you are not interacting with this contract, but Metaplex, because while it can provide proof that you did indeed win 4th place, it has no opinion on how the resource being auctioned off is divvied up between 1st, 2nd, 3rd, and 4th place winners, for example.
 
-This contract will be expanded in the future to include other auction types, and better guarantees between that the auctioneer claiming the bid actually has provided the prize by having the winner sign a PDA saying that they received the prize. Right now this primitive contract should *not* be used in isolation, but in companionship with another contract (like Metaplex in our case) that makes such guarantees that prizes are delivered if prizes are won.
+This contract will be expanded in the future to include other auction types, and better guarantees between that the auctioneer claiming the bid actually has provided the prize by having the winner sign a PDA saying that they received the prize. Right now this primitive contract should _not_ be used in isolation, but in companionship with another contract (like Metaplex in our case) that makes such guarantees that prizes are delivered if prizes are won.
 
 ### Metaplex
 
@@ -59,11 +59,11 @@ Now that we've gone over the contracts, let's run through an example of how the 
 1. You allocate space for a mint account and a token account using Solana's system command and then you use spl-token JS SDK `createMint` and `createTokenAccount` commands to create a new mint and a new token account of that mint. You then use the `mintTo` command to mint a single token to that token account.
 2. You now want to label this token account as a MasterEdition NFT that has a limited supply of 10 possible Limited Edition Prints. Cool! To begin with, you make a call to the Token Metadata's `create_metadata_account` endpoint, naming it the "Bob's Cool NFT" mint with symbol "BOB" and you pass in a link to a picture of your Uncle Bob for the URI. This command creates a Metadata account with a PDA seed of `['metadata', metadata_program_id, your_mint_id]` relative to the `metadata_program_id`.
 
-    Note that the flow on the front end is a bit different - we put a dummy URI in place during this call, just to get the mint and metadata made, so that we can then push these values up to Arweave. Then we take the Arweave URL, and do a follow-up update_metadata_account call to update the Metadata with a proper URI that points to the metadata on the Arweave chain. It's a chicken-or-egg problem work-around because we need to have the Metadata existing to put it on Arweave, but we need the Arweave URI to place it in the Metadata. We simplify the case for this example.
+   Note that the flow on the front end is a bit different - we put a dummy URI in place during this call, just to get the mint and metadata made, so that we can then push these values up to Arweave. Then we take the Arweave URL, and do a follow-up update_metadata_account call to update the Metadata with a proper URI that points to the metadata on the Arweave chain. It's a chicken-or-egg problem work-around because we need to have the Metadata existing to put it on Arweave, but we need the Arweave URI to place it in the Metadata. We simplify the case for this example.
 
 3. Next up, you need to turn this normal run of the mill NFT into a Master Edition. Right now you can still mint any number of tokens as you retain minting authority. The point of Metadata is to label mints - not just NFTs. So you call the create_master_edition endpoint on the Token Metadata contract which takes minting authority away from you, and creates a new Master Edition pda that contains information about how large a supply you want to have.
 
-    When you want to mint Editions now, you'll need to present a token account containing the token from this Master Edition mint as proof of ownership and authority to do so. This is why we will later hand this token over to the Auction Manager, so that it can do the same to print off Editions for winners!
+   When you want to mint Editions now, you'll need to present a token account containing the token from this Master Edition mint as proof of ownership and authority to do so. This is why we will later hand this token over to the Auction Manager, so that it can do the same to print off Editions for winners!
 
 4. Now that your token account has a bonafide NFT Master Edition in it, we can run an auction where we auction off Limited Edition prints! Let's say we want to auction off three such prints.
 5. Next, we create a token vault using the `init_vault` endpoint of the token vault contract. We'll store our master edition token in it by adding it to the vault using the `add_token_to_inactive_vault` endpoint. This will create a safety deposit box in the vault that contains the the token.
@@ -77,7 +77,7 @@ Now that we've gone over the contracts, let's run through an example of how the 
 13. Users can go and call `place_bid` on the Auction contract to place bids. When they do this, tokens of the `token_mint` type used by the auction are taken from the account they provide, tied to their main wallet, and stored in bidder pot accounts in the auction contract.
 14. In order to update a bid, a user must first cancel the original bid, and then place a new bid.
 15. Once the auction is over, a user can refund their bid if they did not win by calling `cancel_bid` again. Winners of the auction cannot cancel their bids.
-16. The winner of a bid creates a mint with decimals 0, a token account with 1 token in it, and calls the `redeem_printing_v2_bid` endpoint on the Metaplex contract, all in a single transaction. This token is now *officially* a Limited Edition of the "Bob's Cool NFT" Master Edition NFT!
+16. The winner of a bid creates a mint with decimals 0, a token account with 1 token in it, and calls the `redeem_printing_v2_bid` endpoint on the Metaplex contract, all in a single transaction. This token is now _officially_ a Limited Edition of the "Bob's Cool NFT" Master Edition NFT!
 17. You, the auctioneer, visits /#/auction/id/billing and hit the settle button. This first iterates over all three bidders and for each wallet used, calls `claim_bid` on the Metaplex contract, which proxy-calls a `claim_bid` on the Auction contract, telling it to dump the winner's payment into an escrow account called `accept_payment` on the AuctionManager struct. It has the same token type as the auction. Once all payments have been collected, the front end then calls the `empty_payment_account` endpoint one time (since you are the only creator on the Metadata being sold) and the funds in this escrow are paid out to a token account provided of the same type owned by you.
 
     Note that our front end reference implementation uses SOL as the "token type." This has some special caveats, namely that SOL isn't really an "spl token." It instead has a work-around called the "Wrapped SOL mint." This is a special mint that is often used in a transient account. What this means is that when we place a bid, we actually make a one-off system account, transfer lamports to it of your bid amount + rent, then label it an spl-token account of the wrapped sol type, use it to place the bid, then close it all in one transaction.
@@ -88,7 +88,7 @@ Now that we've gone over the contracts, let's run through an example of how the 
 
 ## Conclusion
 
-Now that you've been given this architectural overview, we'll follow up with specific in-depth break downs of each contract's state and mechanics. Hopefully you've got a better idea now of how they work together. If you have any further questions, you can always reach out to me, j_, on discord, or my twitter handle, @redacted_j. My partner in crime, b_, who helped build this protocol, can also be reached on twitter at @baalazamon. This was his brainchild and I couldn't have done it without him. He's been a good friend and an even better mentor.
+Now that you've been given this architectural overview, we'll follow up with specific in-depth break downs of each contract's state and mechanics. Hopefully you've got a better idea now of how they work together. If you have any further questions, you can always reach out to me, j*, on discord, or my twitter handle, @redacted_j. My partner in crime, b*, who helped build this protocol, can also be reached on twitter at @baalazamon. This was his brainchild and I couldn't have done it without him. He's been a good friend and an even better mentor.
 
 # Deep Dive
 
@@ -198,7 +198,7 @@ Master Edition accounts are PDA addresses of `['metaplex', metaplex_program_id, 
 
 ### Edition
 
-An edition represents a copy of an NFT, and is created from a Master Edition. Each print has an edition number associated with it.  Normally, prints can be created during Open Edition or Limited Edition auction, but they could also be created by the creator manually.
+An edition represents a copy of an NFT, and is created from a Master Edition. Each print has an edition number associated with it. Normally, prints can be created during Open Edition or Limited Edition auction, but they could also be created by the creator manually.
 
 Editions are created by presenting the Master Edition token, along with a new mint that lacks a Metadata account and a token account containing one token from that mint to the `mint_new_edition_from_master_edition_via_token` endpoint. This endpoint will create both an immutable Metadata based on the parent Metadata and a special Edition struct based on the parent Master Edition struct.
 
@@ -220,7 +220,7 @@ During the first sale, creators share in 100% of the proceeds, while in follow u
 
 ### URI JSON Schema
 
-The URI resource is compatible with [ERC-1155 JSON Schema](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1155.md#erc-1155-metadata-uri-json-schema) in order to easily port NFTs across different chains using the wormhole bridge.  You can see how we build this in our reference implementation here: [https://github.com/metaplex-foundation/metaplex/blob/master/js/packages/web/src/actions/nft.tsx#L66](https://github.com/metaplex-foundation/metaplex/blob/master/js/packages/web/src/actions/nft.tsx#L66)
+The URI resource is compatible with [ERC-1155 JSON Schema](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1155.md#erc-1155-metadata-uri-json-schema) in order to easily port NFTs across different chains using the wormhole bridge. You can see how we build this in our reference implementation here: [https://github.com/metaplex-foundation/metaplex/blob/master/js/packages/web/src/actions/nft.tsx#L66](https://github.com/metaplex-foundation/metaplex/blob/master/js/packages/web/src/actions/nft.tsx#L66)
 
 ```jsx
 {
@@ -362,7 +362,7 @@ The Big Kahuna and namesake of this contract, the Vault is really a container of
 
 **Fractional shares:** It points at a `fractional_mint` and `fractional_treasury`, which allows the vault authority to mint new fractional shares to a treasury account before (or optionally after) **Activation** of the vault. Shares inside the treasury don't count towards the cost of **Combining** the vault.
 
-**Redeem treasury:** This account is used to hold in escrow the funds used to pay off fractional shareholders when the vault authority wishes to **Combine** the vault and regain possession of the stored assets inside. The vault authority has to pay shares_in_circulation*price_of_shares into this redeem treasury. The mint of the treasury is completely decidable by the vault authority, we make no opinions on that.
+**Redeem treasury:** This account is used to hold in escrow the funds used to pay off fractional shareholders when the vault authority wishes to **Combine** the vault and regain possession of the stored assets inside. The vault authority has to pay shares_in_circulation\*price_of_shares into this redeem treasury. The mint of the treasury is completely decidable by the vault authority, we make no opinions on that.
 
 **Pricing Lookup Address:** This is a pointer to an ExternalLookupAccount, which while its struct is defined by the Token Vault program, the account itself does not need to be owned by the vault program or anything within it. It is meant to be an external pricing oracle that is independent of the vault authority or vault that provides pricing data on the fractional share price so that the fractional share owners get a fair buyout by the vault authority.
 
@@ -370,7 +370,7 @@ Token Vaults do not have PDA addresses.
 
 ### Safety Deposit Box
 
-A safety deposit box keeps track of the token account containing the tokens, its vault, and what order in the vault it maintains. If it was inserted 3rd, it's order is 2 (0-based.) It's a pretty simple setup. And yes, you should be aware the safety deposit box doesn't *actually* store any tokens - it contains a `store` key that points to an spl-token account that contains the tokens. It's more of a foreign key join table between the vault and the store.
+A safety deposit box keeps track of the token account containing the tokens, its vault, and what order in the vault it maintains. If it was inserted 3rd, it's order is 2 (0-based.) It's a pretty simple setup. And yes, you should be aware the safety deposit box doesn't _actually_ store any tokens - it contains a `store` key that points to an spl-token account that contains the tokens. It's more of a foreign key join table between the vault and the store.
 
 Safety Deposit Boxes always have PDA addresses of type `['vault', vault_key, mint_key]`.
 
@@ -386,7 +386,7 @@ ExternalPriceAccounts do not have PDA addresses.
 
 A Vault begins its journey in the **Inactive** state. It is in this state that tokens can be added, and fractional shares can be minted into the fractional treasury. The idea is this phase is the "prep" where we are getting the Vault ready for use as an escrow or as a holding corporation for fractional ownership of NFTs.
 
-Once the vault is **Activated**, the Vault is closed, and the vault authority may *not* remove the tokens from the Vault. Furthermore, no new fractional shares may be minted unless during initialization the special `allow_further_share_creation` boolean was set. Some fractional share owners may not be too enthused about buying into a vault only to be diluted later, so we make this a one-time thing during initialization where the vault authority gets to choose what kind of vault it gets to be. The vault authority *can* however, remove shares from the treasury and give them to whomever they want, or start a dex with them, or an AMM, or what have you. These shares represent partial ownership of the vault now!
+Once the vault is **Activated**, the Vault is closed, and the vault authority may _not_ remove the tokens from the Vault. Furthermore, no new fractional shares may be minted unless during initialization the special `allow_further_share_creation` boolean was set. Some fractional share owners may not be too enthused about buying into a vault only to be diluted later, so we make this a one-time thing during initialization where the vault authority gets to choose what kind of vault it gets to be. The vault authority _can_ however, remove shares from the treasury and give them to whomever they want, or start a dex with them, or an AMM, or what have you. These shares represent partial ownership of the vault now!
 
 Let's now say that the vault authority now wants to regain access to the Vault's contents. To do this, first, the ExternalPriceAccount tied to the vault needs to have `allowed_to_combine` set to true. If this is the case, the vault authority can then **Combine** the Vault, providing a token account with enough tokens to pay off all outstanding fractional share holders to the Vault. The Vault will drain this account to the `redeem_treasury` and the Vault will move to the **Combined** state. The Vault will use the `price_per_share` on the ExternalPriceAccount for this calculation. If no shares are outstanding, this **Combination** operation is free. During **Combination**, the vault authority also has the option to transmit vault authority to a new authority. Also note that all shares remaining in the fractional treasury are burned in this step.
 
@@ -567,9 +567,9 @@ BidderPot always has a PDA of `['auction', auction_program_id, auction_id, bidde
 
 ### AuctionDataExtended
 
-If you've read this far, you now get to witness my personal shame. So as it turns out, if you build a complex enough program with enough structs flying around, there is some kind of weird interaction in the Metaplex contract that causes it to blow out with an access violation if you add more than a certain number of keys to one particular struct (AuctionData), and *only* during the redemption endpoint calls. We were unable to discern why this was across 3 days of debugging. We had a theory it was due to some issue with borsh but it is not 100% certain, as we're not experts with that library's internals.
+If you've read this far, you now get to witness my personal shame. So as it turns out, if you build a complex enough program with enough structs flying around, there is some kind of weird interaction in the Metaplex contract that causes it to blow out with an access violation if you add more than a certain number of keys to one particular struct (AuctionData), and _only_ during the redemption endpoint calls. We were unable to discern why this was across 3 days of debugging. We had a theory it was due to some issue with borsh but it is not 100% certain, as we're not experts with that library's internals.
 
-Instead, our work-around was to introduce AuctionDataExtended to add new fields that we needed to AuctionData without breaking this hidden bug that seems to exist. What is odd about the whole thing is adding fields to *other* structs doesn't cause any issues. In the future I'd love to have someone who knows way more than me about these subjects weigh in and tell me what I did wrong here to resolve this split-brain problem! We also don't have reverse lookup capability (Resource key on AuctionData) because of this bug - adding it would cause the blow out I mentioned.
+Instead, our work-around was to introduce AuctionDataExtended to add new fields that we needed to AuctionData without breaking this hidden bug that seems to exist. What is odd about the whole thing is adding fields to _other_ structs doesn't cause any issues. In the future I'd love to have someone who knows way more than me about these subjects weigh in and tell me what I did wrong here to resolve this split-brain problem! We also don't have reverse lookup capability (Resource key on AuctionData) because of this bug - adding it would cause the blow out I mentioned.
 
 Another note here is `gap_tick_size_percentage` as of the time of this writing has not been implemented yet, it is just a dummy field.
 
@@ -718,6 +718,7 @@ pub enum WinningConstraint {
     ParticipationPrizeGiven,
 }
 
+// !!!!!TODO - This explain the constraint used to justify how people who dont win an auction might get a participation prize. Use something like this for participation of fractionalisation
 #[repr(C)]
 #[derive(Clone, BorshSerialize, BorshDeserialize, PartialEq, Debug)]
 pub enum NonWinningConstraint {
@@ -912,7 +913,7 @@ PayoutTickets always have PDAs of `['metaplex', auction_manager_id, winning_conf
 
 ### Store
 
-Every person who forks the repository to make their own storefront should have a unique store struct that is seeded by their own administrative wallet. These are created and updated by the idempotent `set_store` endpoint. Each store can choose to use it's own token, token-metadata, token-vault and auction programs if it so chooses, though right now we've got a hard check that the token program is actually the global spl-token program. The store also can be either public or private, which determines whether or not AuctionManagers can sell items that have all non-whitelisted creators on them or not. We take a "bouncer-knows-your-friend-and-lets-you-in" approach to selling items in whitelist-only stores - if an item has at least one *verified* Whitelisted Creator, then it can be sold.
+Every person who forks the repository to make their own storefront should have a unique store struct that is seeded by their own administrative wallet. These are created and updated by the idempotent `set_store` endpoint. Each store can choose to use it's own token, token-metadata, token-vault and auction programs if it so chooses, though right now we've got a hard check that the token program is actually the global spl-token program. The store also can be either public or private, which determines whether or not AuctionManagers can sell items that have all non-whitelisted creators on them or not. We take a "bouncer-knows-your-friend-and-lets-you-in" approach to selling items in whitelist-only stores - if an item has at least one _verified_ Whitelisted Creator, then it can be sold.
 
 Store PDAs are always a PDA seed of `['metaplex', metaplex_program_id, admin_wallet]` where `metaplex_program_id` is the address of the Metaplex contract and `admin_wallet` is the wallet that is administering this store.
 
@@ -942,11 +943,11 @@ Created on a distinct WinningConfigItem basis (ie by WinningConfigType AND mint)
 
 ### Types of Token Sales
 
-There are five major types of token sales supported by the Metaplex protocol. Four are covered in the WinningConfigType enum, but this is a bit limiting as it is really only considering sales to *winners*, and leaves out the all-important Participation NFT which is a different kind of sale we will consider separately.
+There are five major types of token sales supported by the Metaplex protocol. Four are covered in the WinningConfigType enum, but this is a bit limiting as it is really only considering sales to _winners_, and leaves out the all-important Participation NFT which is a different kind of sale we will consider separately.
 
-**TokenOnlyTransfer:** Probably the easiest to understand, this is a straight up spl_token_transfer command wrapped in a bunch of Metaplex magic. At the end of the day, the auctioneer still owns the Metadata struct and any other associated PDAs, but someone else now has the physical token in their wallets. These tokens will still show up and work just fine in Phantom and other supported wallet clients because those clients can still look up the Metadata. This is the difference between owning the Metadata and owning the token. For a token that is an Edition, the difference is nominal, as an Edition has zero printing rights and is immutable. However, for a token that is a MasterEdition, the difference is *substantial*, as the owner of the Metadata can rename it, change its symbol, it's URI, and creators array.
+**TokenOnlyTransfer:** Probably the easiest to understand, this is a straight up spl*token_transfer command wrapped in a bunch of Metaplex magic. At the end of the day, the auctioneer still owns the Metadata struct and any other associated PDAs, but someone else now has the physical token in their wallets. These tokens will still show up and work just fine in Phantom and other supported wallet clients because those clients can still look up the Metadata. This is the difference between owning the Metadata and owning the token. For a token that is an Edition, the difference is nominal, as an Edition has zero printing rights and is immutable. However, for a token that is a MasterEdition, the difference is \_substantial*, as the owner of the Metadata can rename it, change its symbol, it's URI, and creators array.
 
-Note that owning the token itself is the *only* requirement for using the `update_primary_sale_happened_via_token` endpoint on the token metadata program *and* for using the `mint_new_edition_from_master_edition_via_token`.
+Note that owning the token itself is the _only_ requirement for using the `update_primary_sale_happened_via_token` endpoint on the token metadata program _and_ for using the `mint_new_edition_from_master_edition_via_token`.
 
 **FullRightsTransfer:** This is a TokenOnlyTransfer, except in addition, the `updateAuthority` on the Metadata struct is set to the new owner as well, so they now have all the rights and privileges associated with the original owner, including the right to mint printing tokens. They can even change the name and URI of your token, so be careful!
 
@@ -974,10 +975,10 @@ Note because our front end implementation chooses to use SOL instead of a generi
 
 ### Validation
 
-Just because you provide a vault to an AuctionManager and an AuctionManagerSettings declaring this vault is filled with wonderful prizes *does not* believe that Metaplex will believe you. For every safety deposit box indexed in a WinningConfigItem, there must be a call to `validate_safety_deposit_box` after initiation where the safety deposit box is provided for inspection to the Metaplex contract so that it can verify that there are enough tokens, and of the right type, to pay off all winners in the auction.
+Just because you provide a vault to an AuctionManager and an AuctionManagerSettings declaring this vault is filled with wonderful prizes _does not_ believe that Metaplex will believe you. For every safety deposit box indexed in a WinningConfigItem, there must be a call to `validate_safety_deposit_box` after initiation where the safety deposit box is provided for inspection to the Metaplex contract so that it can verify that there are enough tokens, and of the right type, to pay off all winners in the auction.
 
 Given how irritating this process is, we may in the future merge token-vault with metaplex, or simply copy over the parts of it that are relevant, leaving token-vault out for those interested in experimenting with fractionalization.
 
 ### Unwon Items
 
-Any Token Only Transfer item, or MasterEditionV1/MasterEditionV2 stored for a Full Rights Transfer unwon in an Auction can be returned to the Auction Manager by calling the  `redeem_unused_winning_config_items_as_auctioneer` end point. It acts as a proxy, calling the `redeem_bid` or `redeem_full_rights_transfer_bid` depending on how it is parameterized, and passing in a winning_index that overrides the actual winning_index that would be detected for the bidder_info key being passed in (which is the auctioneer's in this case.) In this way the auctioneer acts not as a winning bidder but as a generic "non-bidder" who empties each prize that has no bidder using the same redemption flow. For MasterEditionV2s stored for PrintingV2 or Participation prizes, these can be withdrawn using `withdraw_edition`.
+Any Token Only Transfer item, or MasterEditionV1/MasterEditionV2 stored for a Full Rights Transfer unwon in an Auction can be returned to the Auction Manager by calling the `redeem_unused_winning_config_items_as_auctioneer` end point. It acts as a proxy, calling the `redeem_bid` or `redeem_full_rights_transfer_bid` depending on how it is parameterized, and passing in a winning_index that overrides the actual winning_index that would be detected for the bidder_info key being passed in (which is the auctioneer's in this case.) In this way the auctioneer acts not as a winning bidder but as a generic "non-bidder" who empties each prize that has no bidder using the same redemption flow. For MasterEditionV2s stored for PrintingV2 or Participation prizes, these can be withdrawn using `withdraw_edition`.

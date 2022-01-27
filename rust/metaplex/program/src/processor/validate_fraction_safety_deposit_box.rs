@@ -2,10 +2,9 @@ use {
     crate::{
         error::MetaplexError,
         state::{
-            FractionManager, FractionManagerV1, FractionManagerStatus,
-            Key, OriginalAuthorityLookup, SafetyDepositConfig, Store, FractionWinningConfigType,
-            MAX_AUTHORITY_LOOKUP_SIZE, PREFIX, TOTALS,
-            FractionSafetyDepositConfig,
+            FractionManager, FractionManagerStatus, FractionManagerV1, FractionSafetyDepositConfig,
+            FractionWinningConfigType, Key, OriginalAuthorityLookup, Store,
+            MAX_AUTHORITY_LOOKUP_SIZE, PREFIX,
         },
         utils::{
             assert_at_least_one_fraction_creator_matches_or_store_public_and_all_verified,
@@ -121,7 +120,6 @@ pub fn assert_common_checks(args: CommonCheckArgs) -> ProgramResult {
         return Err(MetaplexError::VaultAuthorityMismatch.into());
     }
 
-    // TODO - Do I need to change this?
     assert_owned_by(fraction_manager_info, program_id)?;
     assert_owned_by(metadata_info, &store.token_metadata_program)?;
     if !original_authority_lookup_info.data_is_empty() {
@@ -140,7 +138,7 @@ pub fn assert_common_checks(args: CommonCheckArgs) -> ProgramResult {
     assert_owned_by(safety_deposit_token_store_info, &store.token_program)?;
     assert_owned_by(mint_info, &store.token_program)?;
 
-    if *winning_config_type != FractionWinningConfigType::FractionTokenOnlyTransfer {
+    if *winning_config_type != FractionWinningConfigType::FractionToken {
         assert_owned_by(edition_info, &store.token_metadata_program)?;
     }
     assert_owned_by(vault_info, &store.token_vault_program)?;
@@ -203,7 +201,6 @@ pub struct SupplyLogicCheckArgs<'a, 'b> {
     pub metadata: &'b Metadata,
     pub safety_deposit: &'b SafetyDepositBox,
     pub store: &'b Store,
-    pub total_amount_requested: u64,
 }
 
 pub fn assert_supply_logic_check(args: SupplyLogicCheckArgs) -> ProgramResult {
@@ -224,7 +221,6 @@ pub fn assert_supply_logic_check(args: SupplyLogicCheckArgs) -> ProgramResult {
         safety_deposit,
         store,
         safety_deposit_token_store_info,
-        total_amount_requested,
     } = args;
 
     let safety_deposit_token_store: Account = assert_initialized(safety_deposit_token_store_info)?;
@@ -251,7 +247,7 @@ pub fn assert_supply_logic_check(args: SupplyLogicCheckArgs) -> ProgramResult {
 
     // Supply logic check
     match winning_config_type {
-        FractionWinningConfigType::FractionFullRightsTransfer => {
+        FractionWinningConfigType::FractionMasterEditionV2 => {
             // Asserts current wallet owner is the correct metadata owner
             assert_update_authority_is_correct(&metadata, metadata_authority_info)?;
 
@@ -262,14 +258,14 @@ pub fn assert_supply_logic_check(args: SupplyLogicCheckArgs) -> ProgramResult {
                 return Err(MetaplexError::InvalidEditionAddress.into());
             }
 
-            // One NFT Token per token store in configs - if not 1, it should be 0.
             if safety_deposit_token_store.amount != 1 {
                 return Err(MetaplexError::StoreIsEmpty.into());
             }
 
-            if total_amount_requested != 1 {
-                return Err(MetaplexError::NotEnoughTokensToSupplyVaultBuyer.into());
-            }
+            // TODO - IS THIS NEEDED!!!!!!!!
+            // if total_amount_requested != 1 {
+            //     return Err(MetaplexError::NotEnoughTokensToSupplyVaultBuyer.into());
+            // }
 
             let vault_key = fraction_manager.vault();
 
@@ -330,33 +326,14 @@ pub fn assert_supply_logic_check(args: SupplyLogicCheckArgs) -> ProgramResult {
             original_authority_lookup
                 .serialize(&mut *original_authority_lookup_info.data.borrow_mut())?;
         }
-        FractionWinningConfigType::FractionTokenOnlyTransfer => {
+        FractionWinningConfigType::FractionToken => {
             if safety_deposit.token_mint != metadata.mint {
                 return Err(MetaplexError::SafetyDepositBoxMetadataMismatch.into());
             }
-            if safety_deposit_token_store.amount < total_amount_requested {
-                return Err(MetaplexError::NotEnoughTokensToSupplyVaultBuyer.into());
-            }
-        }
-        // TODO - Ensure support of participation rewards for fractionalisation
-        FractionWinningConfigType::Participation => {
-            if edition_key != *edition_info.key {
-                return Err(MetaplexError::InvalidEditionAddress.into());
-            }
-            let master_edition = MasterEditionV2::from_account_info(edition_info)?;
-            if safety_deposit.token_mint != metadata.mint {
-                return Err(MetaplexError::SafetyDepositBoxMetadataMismatch.into());
-            }
-
-            if safety_deposit_token_store.amount != 1 {
-                return Err(MetaplexError::NotEnoughTokensToSupplyWinners.into());
-            }
-
-            if master_edition.max_supply.is_some() {
-                return Err(
-                    MetaplexError::CantUseLimitedSupplyEditionsWithOpenEditionAuction.into(),
-                );
-            }
+            // todo - same as above
+            // if safety_deposit_token_store.amount < total_amount_requested {
+            //     return Err(MetaplexError::NotEnoughTokensToSupplyVaultBuyer.into());
+            // }
         }
     }
 
@@ -420,14 +397,8 @@ pub fn process_validate_fraction_safety_deposit_box<'a>(
         metadata: &metadata,
         safety_deposit: &safety_deposit,
         vault: &vault,
-        winning_config_type: &safety_deposit_config.winning_config_type,
+        winning_config_type: &safety_deposit_config.fraction_winning_config_type,
     })?;
-
-    let total_amount_requested = safety_deposit_config
-        .amount_ranges
-        .iter()
-        .map(|t| t.0 * t.1)
-        .sum();
 
     assert_supply_logic_check(SupplyLogicCheckArgs {
         program_id,
@@ -441,34 +412,17 @@ pub fn process_validate_fraction_safety_deposit_box<'a>(
         payer_info,
         token_metadata_program_info,
         fraction_manager: &fraction_manager,
-        winning_config_type: &safety_deposit_config.winning_config_type,
+        winning_config_type: &safety_deposit_config.fraction_winning_config_type,
         metadata: &metadata,
         safety_deposit: &safety_deposit,
         store: &store,
         safety_deposit_token_store_info,
-        total_amount_requested,
     })?;
 
     if safety_deposit_config.order != safety_deposit.order as u64 {
         return Err(MetaplexError::SafetyDepositConfigOrderMismatch.into());
     }
 
-    if safety_deposit_config.winning_config_type != FractionWinningConfigType::Participation
-        && (safety_deposit_config.participation_config.is_some()
-            || safety_deposit_config.participation_state.is_some())
-    {
-        return Err(MetaplexError::InvalidOperation.into());
-    }
-
-    if safety_deposit_config.winning_config_type == FractionWinningConfigType::Participation {
-        if fraction_manager.state.has_participation {
-            return Err(MetaplexError::AlreadyHasOneParticipationPrize.into());
-        } else {
-            fraction_manager.state.has_participation = true;
-        }
-    }
-
-    // !!! This adds one safety deposit box that is validates. checked_add just adds one to it
     fraction_manager.state.safety_config_items_validated = fraction_manager
         .state
         .safety_config_items_validated
@@ -480,14 +434,6 @@ pub fn process_validate_fraction_safety_deposit_box<'a>(
     }
 
     fraction_manager.save(&mut fraction_manager_info)?;
-
-    // TODO - FIX HERE TO ADD PARTICIPATION
-    // if safety_deposit_config.winning_config_type != FractionWinningConfigType::Participation {
-    //     auction_token_tracker.add_one_where_positive_ranges_occur(
-    //         &mut safety_deposit_config.amount_ranges.clone(),
-    //     )?;
-    //     auction_token_tracker.save(auction_token_tracker_info);
-    // }
 
     make_fraction_safety_deposit_config(
         program_id,

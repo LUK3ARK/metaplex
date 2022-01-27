@@ -7,10 +7,12 @@ import {
 } from '@oyster/common';
 import BN from 'bn.js';
 import { SafetyDepositDraft } from '../actions/createAuctionManager';
+import { FractionSafetyDepositDraft } from '../actions/createFractionManager';
 import {
   NonWinningConstraint,
   ParticipationConfigV2,
   WinningConfigType,
+  FractionWinningConfigType,
   WinningConstraint,
 } from '@oyster/common/dist/lib/models/metaplex/index';
 import { useMeta } from './../contexts';
@@ -81,6 +83,58 @@ export const useUserArts = (): SafetyDepositDraft[] => {
                 fixedPrice: new BN(0),
               })
             : undefined,
+      });
+    }
+    i++;
+  });
+
+  return safetyDeposits;
+};
+
+// Listen. Probably not the best way of making sure function can be used with fractionCreate view but it works. 
+// Does not consider MasterEditionV1s
+export const useUserArtsAsFractionDrafts = (): FractionSafetyDepositDraft[] => {
+  const { metadata, masterEditions, editions } = useMeta();
+  const { userAccounts } = useUserAccounts();
+
+  const accountByMint = userAccounts.reduce((prev, acc) => {
+    prev.set(acc.info.mint.toBase58(), acc);
+    return prev;
+  }, new Map<string, TokenAccount>());
+
+  const ownedMetadata = metadata.filter(
+    m =>
+      accountByMint.has(m.info.mint) &&
+      (accountByMint?.get(m.info.mint)?.info?.amount?.toNumber() || 0) > 0,
+  );
+
+  const possibleEditions = ownedMetadata.map(m =>
+    m.info.edition ? editions[m.info.edition] : undefined,
+  );
+
+  // Only MasterEditionV2s
+  const possibleMasterEditions = ownedMetadata.map(m =>
+    m.info.masterEdition && m.info.key == MetadataKey.MasterEditionV2 ? masterEditions[m.info.masterEdition] : undefined,
+  );
+
+  const safetyDeposits: FractionSafetyDepositDraft[] = [];
+  let i = 0;
+  ownedMetadata.forEach(m => {
+    const a = accountByMint.get(m.info.mint);
+    const masterEdition = possibleMasterEditions[i];
+
+    let fractionWinningConfigType: FractionWinningConfigType = FractionWinningConfigType.FractionToken;
+    if (masterEdition?.info.key == MetadataKey.MasterEditionV2) {
+      fractionWinningConfigType = FractionWinningConfigType.FractionMasterEdtionV2;
+    }
+
+    if (a) {
+      safetyDeposits.push({
+        holding: a.pubkey,
+        edition: possibleEditions[i],
+        masterEdition,
+        metadata: m,
+        fractionWinningConfigType,
       });
     }
     i++;

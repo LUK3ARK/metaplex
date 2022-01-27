@@ -44,7 +44,7 @@ export const VaultsView = () => {
     const refreshButton = connected && storeIndexer.length !== 0 && (
       <Dropdown.Button
         className={"refresh-button padding0"}
-        onClick={() => pullItemsPage(userAccounts)}
+        onClick={() => pullVaultItemsPage(userAccounts)}
         icon={<DownOutlined />}
         overlayClassName={"refresh-overlay"}
         overlay={

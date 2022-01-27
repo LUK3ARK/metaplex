@@ -2,24 +2,23 @@ use {
     crate::{
         error::MetaplexError,
         state::{
-            FractionManagerStatus, FractionManagerV1, Key, Store,
-            TupleNumericType, MAX_FRACTION_MANAGER_SIZE, PREFIX, TOTALS,
+            FractionManagerStatus, FractionManagerV1, Key, Store, MAX_FRACTION_MANAGER_SIZE, PREFIX,
         },
         utils::{
             assert_derivation, assert_initialized, assert_owned_by, create_or_allocate_account_raw,
         },
     },
     borsh::BorshSerialize,
+    metaplex_token_vault::state::{ExternalPriceAccount, Vault, VaultState},
     solana_program::{
         account_info::{next_account_info, AccountInfo},
         entrypoint::ProgramResult,
+        msg,
         program_error::ProgramError,
         program_option::COption,
         pubkey::Pubkey,
     },
-    metaplex_auction::processor::{AuctionData, AuctionState},
     spl_token::state::Account,
-    metaplex_token_vault::state::{Vault, VaultState, ExternalPriceAccount},
 };
 
 pub fn assert_common_checks(
@@ -34,7 +33,8 @@ pub fn assert_common_checks(
 ) -> Result<(u8, Vault), ProgramError> {
     let vault = Vault::from_account_info(vault_info)?;
     let accept_payment: Account = assert_initialized(accept_payment_info)?;
-    let external_price_account = ExternalPriceAccount::from_account_info(external_price_account_info)?;
+    let external_price_account =
+        ExternalPriceAccount::from_account_info(external_price_account_info)?;
 
     // Assert it is real
     let store = Store::from_account_info(store_info)?;
@@ -44,12 +44,10 @@ pub fn assert_common_checks(
     // TODO - might need to check this and change to something more suitable
     assert_owned_by(accept_payment_info, &store.token_program)?;
 
-
-    if vault.authority != *fraction_manager_info.key && vault.authority != *authority_info.key{
+    if vault.authority != *fraction_manager_info.key && vault.authority != *authority_info.key {
         return Err(MetaplexError::FractionVaultAuthorityMismatch.into());
     }
 
-    
     if vault.state != VaultState::Active {
         return Err(MetaplexError::VaultMustBeActive.into());
     }
@@ -110,20 +108,15 @@ pub fn assert_common_checks(
 pub fn process_init_fraction_manager(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    amount_type: TupleNumericType,
-    length_type: TupleNumericType,
-    max_ranges: u64,
+    orderbook_market_pool_size: u64,
 ) -> ProgramResult {
+    msg!("DEBUG WORKS!");
     let account_info_iter = &mut accounts.iter();
-    // TODO - Include fraction token tracker back into javascript bit I think and into this... :(
-        // Might just be the case of adding tracking for one winner - they only have option of winning all config boxes
+
     let fraction_manager_info = next_account_info(account_info_iter)?;
-    //let fraction_token_tracker_info = next_account_info(account_info_iter)?;
-    //let auction_token_tracker_info = next_account_info(account_info_iter)?;
     let vault_info = next_account_info(account_info_iter)?;
     let token_mint_info = next_account_info(account_info_iter)?;
     let external_price_account_info = next_account_info(account_info_iter)?;
-    //let auction_info = next_account_info(account_info_iter)?;
     let authority_info = next_account_info(account_info_iter)?;
     let payer_info = next_account_info(account_info_iter)?;
     let accept_payment_info = next_account_info(account_info_iter)?;
@@ -142,7 +135,11 @@ pub fn process_init_fraction_manager(
         authority_info,
     )?;
 
-    let authority_seeds = &[PREFIX.as_bytes(), &fraction_manager_info.key.as_ref(), &[bump_seed]];
+    let authority_seeds = &[
+        PREFIX.as_bytes(),
+        &fraction_manager_info.key.as_ref(),
+        &[bump_seed],
+    ];
 
     create_or_allocate_account_raw(
         *program_id,
@@ -162,8 +159,7 @@ pub fn process_init_fraction_manager(
     fraction_manager.vault = *vault_info.key;
     fraction_manager.authority = *authority_info.key;
     fraction_manager.accept_payment = *accept_payment_info.key;
-    //fraction_manager.state.safety_config_items_validated = 0;
-    //fraction_manager.state.bids_pushed_to_accept_payment = 0;
+    fraction_manager.state.safety_config_items_validated = 0;
 
     fraction_manager.token_mint = *token_mint_info.key;
 

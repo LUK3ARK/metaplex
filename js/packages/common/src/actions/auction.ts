@@ -384,6 +384,22 @@ export interface IPartialCreateAuctionArgs {
   name: number[] | null;
 }
 
+// TODO - do i need to do this? probs do, figure out what to add (I moved the interface btw)
+// export class CreateFractionArgs implements IPartialCreateFractionArgs {
+//   /// Token mint for the SPL token used for bidding.
+//   tokenMint: StringPublicKey;
+
+//   /// Ticker name of the fraction to be created
+//   ticker: string | null;
+
+//   /// Total supply of the fractions to make
+//   maxSupply: BN;
+
+//   /// Price required to buyout the NFT item(s) from the vault
+//   buyoutPrice: BN;
+
+// }
+
 export class CreateAuctionArgs implements IPartialCreateAuctionArgs {
   instruction: number = 7;
   /// How many winners are allowed for this auction. See AuctionData.

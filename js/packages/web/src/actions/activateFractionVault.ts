@@ -1,19 +1,19 @@
 import { Keypair, TransactionInstruction } from '@solana/web3.js';
 import { StringPublicKey, WalletSigner } from '@oyster/common';
-import { SafetyDepositConfig } from '@oyster/common/dist/lib/models/metaplex/index';
+import { FractionSafetyDepositConfig } from '@oyster/common/dist/lib/models/metaplex/index';
 import { activateVault } from '@oyster/common/dist/lib/actions/vault';
 import BN from 'bn.js';
-import { SafetyDepositDraft } from './createAuctionManager';
+import { FractionSafetyDepositDraft } from './createFractionManager';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
 
-export interface SafetyDepositInstructionTemplate {
+export interface FractionSafetyDepositInstructionTemplate {
   box: {
     tokenAccount?: StringPublicKey;
     tokenMint: StringPublicKey;
     amount: BN;
   };
-  draft: SafetyDepositDraft;
-  config: SafetyDepositConfig;
+  draft: FractionSafetyDepositDraft;
+  config: FractionSafetyDepositConfig;
 }
 
 export async function activateFractionVault(
