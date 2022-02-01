@@ -116,7 +116,7 @@ export const MetaplexMenu = () => {
 export const LogoLink = () => {
   return (
     <Link to={`/`}>
-      <img src={'/metaplex-logo.svg'} />
+      <h2>Franti.k</h2>
     </Link>
   );
 };

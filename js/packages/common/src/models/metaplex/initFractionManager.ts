@@ -12,40 +12,26 @@ import {
   InitFractionManagerArgs,
 } from '.';
 import { programIds, toPublicKey, StringPublicKey } from '../../utils';
-import { MAX_FRACTION_MANAGER_SIZE } from '@oyster/common/dist/lib/actions/vault';
 
 export async function initFractionManager(
-  connection: Connection,
   fractionManager: StringPublicKey,
   vault: StringPublicKey,
   tokenMint: StringPublicKey,
   externalFractionPriceAccount: StringPublicKey,
-  authority: StringPublicKey,
+  fractionManagerAuthority: StringPublicKey,
   payer: StringPublicKey,
   acceptPayment: StringPublicKey,
   store: StringPublicKey,
-  marketPoolSize: BN,
+  orderbookMarketPoolSize: BN,
   instructions: TransactionInstruction[],
 ) {
   const PROGRAM_IDS = programIds();
 
-  const fractionManagerRentExempt = await connection.getMinimumBalanceForRentExemption(
-    MAX_FRACTION_MANAGER_SIZE,
-  );
-
-  // todo !@!@
-  const uninitializedFractionManager = SystemProgram.createAccount({
-    fromPubkey: toPublicKey(payer),
-    newAccountPubkey: toPublicKey(fractionManager),
-    lamports: fractionManagerRentExempt,
-    space: MAX_FRACTION_MANAGER_SIZE,
-    programId: toPublicKey(PROGRAM_IDS.metaplex),
-  });
-  instructions.push(uninitializedFractionManager);
-
-  const value = new InitFractionManagerArgs({orderbookMarketPoolSize: marketPoolSize});
+  // todo - just set this to 0
+  const value = new InitFractionManagerArgs({orderbookMarketPoolSize});
+  console.log("!!!valueeee isss" + value.orderbookMarketPoolSize);
   const data = Buffer.from(serialize(SCHEMA, value));
-  // TODO - LEFT OFF HERE FIX THIS FUNCTION
+
   const keys = [
     {
       pubkey: toPublicKey(fractionManager),
@@ -68,7 +54,7 @@ export async function initFractionManager(
       isWritable: true,
     },
     {
-      pubkey: toPublicKey(authority),
+      pubkey: toPublicKey(fractionManagerAuthority),
       isSigner: true,
       isWritable: false,
     },
@@ -100,6 +86,7 @@ export async function initFractionManager(
     
   ];
 
+    console.log("data!!!  " + data);
   instructions.push(
     new TransactionInstruction({
       keys,

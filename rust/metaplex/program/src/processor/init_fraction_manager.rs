@@ -160,6 +160,10 @@ pub fn process_init_fraction_manager(
     fraction_manager.authority = *authority_info.key;
     fraction_manager.accept_payment = *accept_payment_info.key;
     fraction_manager.state.safety_config_items_validated = 0;
+    // todo - set this to 1 maybe if a order book market is created straight away?
+    // todo - and set has participation to true if does have participation
+    fraction_manager.state.token_pools_active = 0;
+    fraction_manager.state.has_participation = false;
 
     fraction_manager.token_mint = *token_mint_info.key;
 

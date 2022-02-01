@@ -1152,6 +1152,7 @@ export const SCHEMA = new Map<any, any>([
     {
       kind: 'struct',
       fields: [
+        ['instruction', 'u8'],
         ['orderbookMarketPoolSize', 'u64'],
       ],
     },

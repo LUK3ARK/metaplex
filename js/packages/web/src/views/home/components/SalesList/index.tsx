@@ -30,11 +30,11 @@ export const SalesListView = () => {
   return (
     <>
       <Banner
-        src="/main-banner.svg"
-        headingText="The amazing world of Metaplex."
-        subHeadingText="Buy exclusive Metaplex NFTs."
+        src="/lotus.svg"
+        headingText="The Next Generation of NFT Financing."
+        subHeadingText="Break Out of the Mold."
         actionComponent={<HowToBuyModal buttonClassName="secondary-btn" />}
-        useBannerBg
+        useBannerBg={false}
       />
       <Layout>
         <Content style={{ display: 'flex', flexWrap: 'wrap' }}>

@@ -146,7 +146,6 @@ export async function createFractionManager(
     signers: fractionManagerSigners,
     fractionManager,
   } = await setupFractionManagerInstructions(
-    connection,
     wallet,
     vault,
     paymentMint,
@@ -354,7 +353,6 @@ async function buildSafetyDepositArray(
 }
 
 async function setupFractionManagerInstructions(
-  connection: Connection,
   wallet: WalletSigner,
   vault: StringPublicKey,
   paymentMint: StringPublicKey,
@@ -399,7 +397,6 @@ async function setupFractionManagerInstructions(
   // }
 
   await initFractionManager(
-    connection,
     fractionManagerKey,
     vault,
     tokenMint,
@@ -411,6 +408,7 @@ async function setupFractionManagerInstructions(
     marketPoolSize,
     instructions,
   );
+  console.log("instructions!!! are ----> " + instructions);
 
   return { instructions, signers, fractionManager: fractionManagerKey };
 }
