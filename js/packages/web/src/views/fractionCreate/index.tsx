@@ -15,7 +15,7 @@ import {
   Checkbox,
 } from 'antd';
 import { ArtCard } from './../../components/ArtCard';
-import { MINIMUM_SAFE_FEE_AUCTION_CREATION, QUOTE_MINT } from './../../constants';
+import { MINIMUM_SAFE_FEE_FRACTION_CREATION, QUOTE_MINT } from './../../constants';
 import { Confetti } from './../../components/Confetti';
 import { ArtSelector } from './artSelector';
 import {
@@ -170,7 +170,7 @@ export const FractionCreateView = () => {
       // MIGHT NEED TO add priceTick and other stuff, but this is likely to be taken care of when implementing serum
       const fractionVaultSettings: IPartialCreateFractionArgs = {
         tokenMint: QUOTE_MINT.toBase58(),
-        maxSupply: new BN(attributes.fractionSupply * LAMPORTS_PER_SOL),
+        maxSupply: new BN(attributes.fractionSupply),
         buyoutPrice: new BN(attributes.buyoutPrice * LAMPORTS_PER_SOL),
         ticker: attributes.ticker,
       };
@@ -185,7 +185,7 @@ export const FractionCreateView = () => {
         fractionVaultSettings,
         safetyDepositDrafts,
         attributes.quoteMintAddress,
-        new BN(0),
+        new BN(2000),
       );
       setFractionObj(_fractionObj);
 
@@ -280,22 +280,17 @@ const CopiesStep = (props: {
   setAttributes: (attr: FractionState) => void;
   confirm: () => void;
 }) => {
-  const [showTokenDialog, setShowTokenDialog] = useState(false);
-  const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
-  // give default value to mint
+  // const [showTokenDialog, setShowTokenDialog] = useState(false);
+  // const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
+  // // give default value to mint
 
-  const { hasOtherTokens, tokenMap} = useTokenList();
+  // props.attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
 
-  // give default value to mint
-  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
-
-  props.attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
-
-  // if (props.attributes.quoteMintAddress) {
-  //   props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
-  //   props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
-  // }
-  // props.setAttributes({...props.attributes});
+  // // if (props.attributes.quoteMintAddress) {
+  // //   props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
+  // //   props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
+  // // }
+  // // props.setAttributes({...props.attributes});
 
 
   let artistFilter = (i: FractionSafetyDepositDraft) =>
@@ -361,18 +356,43 @@ const PriceFractionsStep = (props: {
   setAttributes: (attr: FractionState) => void;
   confirm: () => void;
 }) => {
+  const [showTokenDialog, setShowTokenDialog] = useState(false);
+  const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
+  // give default value to mint
+
+  const { hasOtherTokens, tokenMap} = useTokenList();
+
+  props.attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
+
+  if (props.attributes.quoteMintAddress) {
+    props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
+    props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
+  }
+
+  // give default value to mint
+  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
+
+  console.log(props.attributes)
+  const quoteMintName = props.attributes?.quoteMintInfoExtended?.name || "Custom Token"
+  const quoteMintExt = props.attributes?.quoteMintInfoExtended?.symbol || shortenAddress(props.attributes.quoteMintAddress)
+// TODO - Add a minimum price for total price
   return (
     <>
       <Row className="call-to-action">
-        <h2>Configure Fractions</h2>
-        <p>Set the price and total supply of your soon-to-be fraction tokens!</p>
+          <h2>Configure Fractions</h2>
+          <p>
+            {props.attributes.quoteMintAddress != WRAPPED_SOL_MINT.toBase58() && ` Warning! the auction quote mint is `}
+            {props.attributes.quoteMintAddress != WRAPPED_SOL_MINT.toBase58()&& <a href={`https://explorer.solana.com/address/${props.attributes?.quoteMintAddress}`} target="_blank"> {props.attributes?.quoteMintAddress != WRAPPED_SOL_MINT.toBase58() &&
+              `${quoteMintName} (${quoteMintExt})`}
+            </a>}
+          </p>
       </Row>
       <Row className="content-action">
         <Col className="section" xl={24}>
           <label className="action-field">
             <span className="field-title">Price</span>
             <span className="field-info">
-              This is the Starting Price of the vault's contents. If someone wants to buyout the vaults item(s), they will pay this price. This changes as people buy and sell the fractions if this fraction has been registered on a DEX.
+              This is the Starting Price of the vault's contents. If someone wants to buyout the vaults item(s), they will pay this price. This may change as people buy and sell the fractions if this fraction has been registered on a DEX.
             </span>
             <Input
               type="number"
@@ -381,7 +401,7 @@ const PriceFractionsStep = (props: {
               className="input"
               placeholder="Buyout Price"
               prefix="◎"
-              suffix="SOL"
+              suffix={mintInfo?.symbol || "CUSTOM"}
               onChange={info =>
                 props.setAttributes({
                   ...props.attributes,
@@ -390,11 +410,24 @@ const PriceFractionsStep = (props: {
               }
             />
           </label>
+          {hasOtherTokens && (
+            <label className="action-field">
+              <span className="field-title">Fraction mint</span>
+              <TokenButton mint={mint} onClick={() => setShowTokenDialog(true)} />
+              <TokenDialog
+                setMint={setMint}
+                open={showTokenDialog}
+                onClose={() => {
+                  setShowTokenDialog(false);
+                }}
+              />
+            </label>
+          )}
 
           <label className="action-field">
-            <span className="field-title">Tick Size</span>
+            <span className="field-title">Token Supply</span>
             <span className="field-info">
-              Number of Tokens to Mint
+              How many fractions do you want to create?
             </span>
             <Input
               type="number"
@@ -451,7 +484,10 @@ const ReviewStep = (props: {
   setAttributes: Function;
   connection: Connection;
 }) => {
+  const [showFundsIssueModal, setShowFundsIssueModal] = useState(false)
   const [cost, setCost] = useState(0);
+  const { account } = useNativeAccount();
+
   useEffect(() => {
     const rentCall = Promise.all([
       props.connection.getMinimumBalanceForRentExemption(MintLayout.span),
@@ -460,6 +496,8 @@ const ReviewStep = (props: {
 
     // TODO: add
   }, [setCost]);
+
+  const balance = (account?.lamports || 0) / LAMPORTS_PER_SOL;
 
   let item = props.attributes.items?.[0];
 
@@ -514,12 +552,23 @@ const ReviewStep = (props: {
           type="primary"
           size="large"
           onClick={() => {
-            props.confirm();
+            if (balance < MINIMUM_SAFE_FEE_FRACTION_CREATION) {
+              setShowFundsIssueModal(true)
+            } else {
+              confirm()
+            }
           }}
           className="action-btn"
         >
-        Frack Assets
+          Fraction Assets
         </Button>
+        <FundsIssueModal
+          message={"Estimated Minimum Fee"}
+          minimumFunds={MINIMUM_SAFE_FEE_FRACTION_CREATION}
+          currentFunds={balance}
+          isModalVisible={showFundsIssueModal}
+          onClose={() => setShowFundsIssueModal(false)}
+        />
       </Row>
     </>
   );

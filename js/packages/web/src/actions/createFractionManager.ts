@@ -106,7 +106,7 @@ export async function createFractionManager(
     priceMint,
     instructions: epaInstructions,
     signers: epaSigners,
-  } = await createExternalFractionPriceAccount(connection, wallet, fractionVaultSettings.maxSupply, fractionVaultSettings.buyoutPrice);
+  } = await createExternalFractionPriceAccount(connection, wallet, fractionVaultSettings.maxSupply, fractionVaultSettings.buyoutPrice, paymentMint);
   
   const {
     instructions: createVaultInstructions,

@@ -19,7 +19,6 @@ import {
 } from '@oyster/common/dist/lib/actions/vault';
 
 import BN from 'bn.js';
-import { QUOTE_MINT } from '../constants';
 
 // This command creates the external pricing oracle
 export async function createExternalFractionPriceAccount(
@@ -27,6 +26,7 @@ export async function createExternalFractionPriceAccount(
   wallet: WalletSigner,
   totalSupply: BN,
   buyoutPrice: BN,
+  priceMint: StringPublicKey,
 ): Promise<{
   priceMint: StringPublicKey;
   externalPriceAccount: StringPublicKey;
@@ -49,7 +49,7 @@ export async function createExternalFractionPriceAccount(
 
   const epaStruct = new ExternalPriceAccount({
     pricePerShare: buyoutPrice.div(totalSupply),
-    priceMint: QUOTE_MINT.toBase58(),
+    priceMint: priceMint,
     allowedToCombine: true,
   });
 
@@ -67,7 +67,7 @@ export async function createExternalFractionPriceAccount(
 
   return {
     externalPriceAccount: key,
-    priceMint: QUOTE_MINT.toBase58(),
+    priceMint: priceMint,
     instructions,
     signers,
   };

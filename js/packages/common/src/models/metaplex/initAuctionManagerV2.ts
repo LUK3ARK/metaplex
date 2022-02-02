@@ -34,12 +34,14 @@ export async function initAuctionManagerV2(
     lengthType,
     maxRanges,
   });
+  console.log("!!!valueeee isss haha "+ value + " maxranges " + value.maxRanges);
 
   const tokenTracker = await getAuctionWinnerTokenTypeTracker(
     auctionManagerKey,
   );
 
   const data = Buffer.from(serialize(SCHEMA, value));
+  console.log("data isc--> ! " + data)
 
   const keys = [
     {

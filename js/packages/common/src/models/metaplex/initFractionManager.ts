@@ -29,8 +29,9 @@ export async function initFractionManager(
 
   // todo - just set this to 0
   const value = new InitFractionManagerArgs({orderbookMarketPoolSize});
-  console.log("!!!valueeee isss" + value.orderbookMarketPoolSize);
+  console.log("!!!valueeee isss haha "+ value + " " + value.orderbookMarketPoolSize);
   const data = Buffer.from(serialize(SCHEMA, value));
+  console.log("data isc--> ! " + data)
 
   const keys = [
     {
