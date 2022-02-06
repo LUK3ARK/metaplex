@@ -478,7 +478,12 @@ const PriceFractionsStep = (props: {
 };
 
 
-const ReviewStep = (props: {
+const ReviewStep = ({
+  confirm,
+  attributes,
+  setAttributes,
+  connection,
+}: {
   confirm: () => void;
   attributes: FractionState;
   setAttributes: Function;
@@ -490,8 +495,8 @@ const ReviewStep = (props: {
 
   useEffect(() => {
     const rentCall = Promise.all([
-      props.connection.getMinimumBalanceForRentExemption(MintLayout.span),
-      props.connection.getMinimumBalanceForRentExemption(MAX_METADATA_LEN),
+      connection.getMinimumBalanceForRentExemption(MintLayout.span),
+      connection.getMinimumBalanceForRentExemption(MAX_METADATA_LEN),
     ]);
 
     // TODO: add
@@ -499,7 +504,7 @@ const ReviewStep = (props: {
 
   const balance = (account?.lamports || 0) / LAMPORTS_PER_SOL;
 
-  let item = props.attributes.items?.[0];
+  let item = attributes.items?.[0];
 
   return (
     <>
@@ -527,24 +532,24 @@ const ReviewStep = (props: {
           className="create-statistic"
           title="Ticker Symbol"
           value={
-            props.attributes.ticker
-              ? props.attributes.ticker
+            attributes.ticker
+              ? attributes.ticker
               : ''
           }
         />
         <br />
-        {props.attributes.buyoutPrice && (
+        {attributes.buyoutPrice && (
           <Statistic
             className="create-statistic"
             title="The Buyout Price of the vault's contents."
-            value={props.attributes.buyoutPrice}
+            value={attributes.buyoutPrice}
           />
         )}
         <Divider />
         <Statistic
           className="create-statistic"
           title="Maximum supply of fractions"
-          value={props.attributes.fractionSupply}
+          value={attributes.fractionSupply}
         />
       </Row>
       <Row>
