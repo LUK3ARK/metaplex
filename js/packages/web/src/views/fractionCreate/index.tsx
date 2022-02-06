@@ -291,11 +291,11 @@ const CopiesStep = (props: {
 
   props.attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
 
-  // if (props.attributes.quoteMintAddress) {
-  //   props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
-  //   props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
-  // }
-  // props.setAttributes({...props.attributes});
+  if (props.attributes.quoteMintAddress) {
+    props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
+    props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
+  }
+  props.setAttributes({...props.attributes});
 
 
   let artistFilter = (i: FractionSafetyDepositDraft) =>
