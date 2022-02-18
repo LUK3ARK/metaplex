@@ -9,7 +9,6 @@ import {
   ArtView,
   ArtworksView,
   AuctionCreateView,
-  FractionCreateView,
   AuctionView,
   HomeView,
   StaticPageView,
@@ -64,11 +63,6 @@ export function Routes() {
               exact
               path="/auction/create/:step_param?"
               component={() => <AuctionCreateView />}
-            />
-            <Route
-              exact
-              path="/fraction/create/:step_param?"
-              component={() => <FractionCreateView />}
             />
             <Route
               exact

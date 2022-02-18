@@ -108,23 +108,24 @@ export const pullYourMetadata = async (
 
   console.log('--------->Pulling metadata for user.');
   let currBatch: string[] = [];
-  let batches: string[][] | null = [];
-  const editions: string[] = [];
+  let batches = [];
+  const editions = [];
+
   for (let i = 0; i < userTokenAccounts.length; i++) {
     if (userTokenAccounts[i].info.amount.toNumber() == 1) {
-      if (2 + currBatch.length > MULTIPLE_ACCOUNT_BATCH_SIZE) {
+      const edition = await getEdition(
+        userTokenAccounts[i].info.mint.toBase58(),
+      );
+      const newAdd = [
+        await getMetadata(userTokenAccounts[i].info.mint.toBase58()),
+        edition,
+      ];
+      editions.push(edition);
+      currBatch = currBatch.concat(newAdd);
+
+      if (2 + currBatch.length >= MULTIPLE_ACCOUNT_BATCH_SIZE) {
         batches.push(currBatch);
         currBatch = [];
-      } else {
-        const edition = await getEdition(
-          userTokenAccounts[i].info.mint.toBase58(),
-        );
-        const newAdd = [
-          await getMetadata(userTokenAccounts[i].info.mint.toBase58()),
-          edition,
-        ];
-        editions.push(edition);
-        currBatch = currBatch.concat(newAdd);
       }
     }
   }
@@ -1198,7 +1199,13 @@ export const metadataByMintUpdater = async (
 ) => {
   const key = metadata.info.mint;
   if (isMetadataPartOfStore(metadata, state.whitelistedCreatorsByCreator)) {
-    await metadata.info.init();
+    //await metadata.info.init();
+
+    // The mpl does not have the init() method implemented Yet so we do it manually in the mean time.
+    const edition = await getEdition(metadata.info.mint);
+    metadata.info.edition = edition;
+    metadata.info.masterEdition = edition;
+
     const masterEditionKey = metadata.info?.masterEdition;
     if (masterEditionKey) {
       state.metadataByMasterEdition[masterEditionKey] = metadata;
@@ -1219,7 +1226,13 @@ export const initMetadata = async (
   setter: UpdateStateValueFunc,
 ) => {
   if (isMetadataPartOfStore(metadata, whitelistedCreators)) {
-    await metadata.info.init();
+    //await metadata.info.init();
+
+    // The mpl does not have the init() method implemented Yet so we do it manually in the mean time.
+    const edition = await getEdition(metadata.info.mint);
+    metadata.info.edition = edition;
+    metadata.info.masterEdition = edition;
+
     setter('metadataByMint', metadata.info.mint, metadata);
     setter('metadata', '', metadata);
     const masterEditionKey = metadata.info?.masterEdition;

@@ -81,7 +81,7 @@ async function findProgramAddressByPrefix(
   const PROGRAM_IDS = programIds();
 
   const numberBuffer = Buffer.allocUnsafe(4);
-  numberBuffer.writeUInt16LE(index, 0);
+  numberBuffer.writeUInt16LE(index);
 
   return (
     await findProgramAddress(
