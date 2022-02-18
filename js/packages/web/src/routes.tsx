@@ -9,9 +9,12 @@ import {
   ArtView,
   ArtworksView,
   AuctionCreateView,
+  FractionCreateView,
   AuctionView,
   HomeView,
   StaticPageView,
+  //VaultsView, 
+  // todo
 } from './views';
 import { AdminView } from './views/admin';
 import PackView from './views/pack';
@@ -55,6 +58,11 @@ export function Routes() {
               path="/artworks/:id?"
               component={() => <ArtworksView />}
             />
+            {/* <Route
+              exact
+              path="/vaults/:id?"
+              component={() => <VaultsView />}
+            /> */}
             <Route exact path="/art/:id" component={() => <ArtView />} />
             <Route exact path="/artists/:id" component={() => <ArtistView />} />
             <Route exact path="/artists" component={() => <ArtistsView />} />
@@ -63,6 +71,11 @@ export function Routes() {
               exact
               path="/auction/create/:step_param?"
               component={() => <AuctionCreateView />}
+            />
+            <Route
+              exact
+              path="/fraction/create/:step_param?"
+              component={() => <FractionCreateView />}
             />
             <Route
               exact
