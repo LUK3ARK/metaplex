@@ -69,13 +69,6 @@ import TokenDialog, { TokenButton } from '../../components/TokenDialog';
 import { useTokenList } from '../../contexts/tokenList';
 import { mintTo } from '@project-serum/serum/lib/token-instructions';
 import { TokenInfo } from '@solana/spl-token-registry'
-import { FundsIssueModal } from "../../components/FundsIssueModal";
-import { createVault } from '../../actions/createVault';
-import { createExternalFractionPriceAccount, addTokensToVault, SafetyDepositInstructionTemplate } from '../../actions';
-import { activateFractionVault } from '../../actions/activateFractionVault';
-import { AccountLayout } from '@solana/spl-token';
-import { markItemsThatArentMineAsSold } from '../../actions/markItemsThatArentMineAsSold';
-import { setVaultFractionAuthorities } from '../../actions/setVaultFractionAuthorities';
 import { createFractionManager, FractionSafetyDepositDraft } from '../../actions/createFractionManager';
 
 const { Option } = Select;
@@ -167,7 +160,7 @@ export const FractionCreateView = () => {
 
       // todo NOTE: Called partial fraction args as it is not all of the arguments!! later on in logic authority is added I think
       // MIGHT NEED TO add priceTick and other stuff, but this is likely to be taken care of when implementing serum
-      const fractionVaultSettings: IPartialCreateFractionArgs = {
+      const fractionVaultSettings: ICreateFractionArgs = {
         tokenMint: QUOTE_MINT.toBase58(),
         maxSupply: new BN(attributes.fractionSupply * LAMPORTS_PER_SOL),
         buyoutPrice: new BN(attributes.buyoutPrice * LAMPORTS_PER_SOL),

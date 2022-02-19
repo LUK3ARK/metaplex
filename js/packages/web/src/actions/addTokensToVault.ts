@@ -19,6 +19,7 @@ import { AccountLayout } from '@solana/spl-token';
 import BN from 'bn.js';
 import { SafetyDepositDraft } from './createAuctionManager';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
+import { FractionSafetyDepositInstructionTemplate } from './activateFractionVault';
 
 export interface SafetyDepositInstructionTemplate {
   box: {
@@ -37,7 +38,7 @@ export async function addTokensToVault(
   connection: Connection,
   wallet: WalletSigner,
   vault: StringPublicKey,
-  nfts: SafetyDepositInstructionTemplate[],
+  nfts: SafetyDepositInstructionTemplate[] | FractionSafetyDepositInstructionTemplate[],
 ): Promise<{
   instructions: Array<TransactionInstruction[]>;
   signers: Array<Keypair[]>;

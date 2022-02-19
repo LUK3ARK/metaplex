@@ -13,6 +13,7 @@ import {
   VAULT_ID,
   AUCTION_ID,
   PACK_CREATE_ID,
+  FRANTIK_ID,
   toPublicKey,
 } from './ids';
 
@@ -55,5 +56,6 @@ export const programIds = () => {
     pack_create: PACK_CREATE_ID,
     oracle: ORACLE_ID,
     store: STORE,
+    frantik: FRANTIK_ID,
   };
 };

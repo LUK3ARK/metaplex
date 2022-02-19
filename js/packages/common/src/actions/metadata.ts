@@ -13,6 +13,8 @@ import {
   DataV2,
   UpdateMetadataV2Args,
   MetadataData,
+  Collection,
+  Uses,
 } from '@metaplex-foundation/mpl-token-metadata';
 export const METADATA_PREFIX = 'metadata';
 export const EDITION = 'edition';
@@ -416,6 +418,21 @@ export const METADATA_SCHEMA = new Map<any, any>([
         ['uri', 'string'],
         ['sellerFeeBasisPoints', 'u16'],
         ['creators', { kind: 'option', type: [Creator] }],
+      ],
+    },
+  ],
+  [
+    DataV2,
+    {
+      kind: 'struct',
+      fields: [
+        ['name', 'string'],
+        ['symbol', 'string'],
+        ['uri', 'string'],
+        ['sellerFeeBasisPoints', 'u16'],
+        ['creators', { kind: 'option', type: [Creator] }],
+        ['collection', { kind: 'option', type: [Collection]}],
+        ['uses', { kind: 'option', type: [Uses]}],
       ],
     },
   ],

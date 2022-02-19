@@ -14,7 +14,7 @@ import {
   WinningConfigType,
   FractionWinningConfigType,
   WinningConstraint,
-} from '@oyster/common/dist/lib/models/metaplex/index';
+} from '@oyster/common';
 import { useMeta } from './../contexts';
 
 export const useUserArts = (): SafetyDepositDraft[] => {

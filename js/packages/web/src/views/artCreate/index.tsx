@@ -641,7 +641,7 @@ const InfoStep = (props: {
       <Row className="call-to-action">
         <h2>Describe your item</h2>
         <p>
-          Provide detailed description of your creative process to engage with
+          Provide a detailed description of your creative process to engage with
           your audience.
         </p>
       </Row>

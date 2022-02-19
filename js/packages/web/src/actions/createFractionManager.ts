@@ -21,17 +21,17 @@ import {
   StringPublicKey,
   toPublicKey,
   WalletSigner,
+  FractionWinningConfigType,
+  FractionSafetyDepositConfig,
   getFractionManagerKey,
+  getWhitelistedCreator,
+  WhitelistedCreator,
 } from '@oyster/common';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
 import { AccountLayout } from '@solana/spl-token';
 import BN from 'bn.js';
 import {
-  FractionWinningConfigType,
-  getWhitelistedCreator,
-  WhitelistedCreator,
-  FractionSafetyDepositConfig,
-} from '@oyster/common/dist/lib/models/metaplex/index';
+} from '@oyster/common/dist/lib/models/frantik/index';
 import { createTokenAccount } from '@oyster/common/dist/lib/actions/account';
 import { createVault } from './createVault';
 import {
@@ -41,7 +41,7 @@ import { FractionSafetyDepositInstructionTemplate } from './activateFractionVaul
 import { createExternalFractionPriceAccount } from './createExternalFractionPriceAccount';
 import { setVaultFractionAuthorities } from './setVaultFractionAuthorities';
 import { markItemsThatArentMineAsSold } from './markItemsThatArentMineAsSold';
-import { validateFractionSafetyDepositBox } from '@oyster/common/dist/lib/models/metaplex/validateFractionSafetyDepositBox';
+import { validateFractionSafetyDepositBox } from '@oyster/common/dist/lib/models/frantik/validateFractionSafetyDepositBox';
 import { initFractionManager } from '@oyster/common/dist/lib/models/metaplex/initFractionManager';
 import { activateFractionVault } from '../actions/activateFractionVault';
 
@@ -87,7 +87,7 @@ export async function createFractionManager(
     string,
     ParsedAccount<WhitelistedCreator>
   >,
-  fractionVaultSettings: IPartialCreateFractionArgs,
+  fractionVaultSettings: ICreateFractionArgs,
   safetyDepositDrafts: FractionSafetyDepositDraft[],
   paymentMint: StringPublicKey,
   marketPoolSize: BN,

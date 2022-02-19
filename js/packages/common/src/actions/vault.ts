@@ -167,6 +167,20 @@ class UpdateExternalPriceAccountArgs {
   }
 }
 
+export interface ICreateFractionArgs {
+  /// Token mint for the SPL token used for bidding.
+  tokenMint: StringPublicKey;
+
+  /// Ticker name of the fraction tokens to be to be created
+  ticker: string | null;
+
+  /// Total supply of the fractions to make
+  maxSupply: BN;
+
+  /// Price required to buyout the NFT item(s) from the vault
+  buyoutPrice: BN;
+}
+
 export const VAULT_SCHEMA = new Map<any, any>([
   [
     InitVaultArgs,

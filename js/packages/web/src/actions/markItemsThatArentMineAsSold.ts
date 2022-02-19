@@ -5,11 +5,12 @@ import {
 } from '@oyster/common';
 import { SafetyDepositDraft } from './createAuctionManager';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
+import { FractionSafetyDepositDraft } from './createFractionManager';
 const SALE_TRANSACTION_SIZE = 10;
 
 export async function markItemsThatArentMineAsSold(
   wallet: WalletSigner,
-  safetyDepositDrafts: SafetyDepositDraft[],
+  safetyDepositDrafts: SafetyDepositDraft[] | FractionSafetyDepositDraft[],
 ): Promise<{ instructions: TransactionInstruction[][]; signers: Keypair[][] }> {
   if (!wallet.publicKey) throw new WalletNotConnectedError();
 
