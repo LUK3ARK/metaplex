@@ -69,8 +69,7 @@ export const METADATA_PROGRAM_ID =
   'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as StringPublicKey;
 
 // TODO - PUT ID HERE!!
-export const FRANTIK_ID = 
-  '' as StringPublicKey;
+export const FRANTIK_ID = '' as StringPublicKey;
 
 export const VAULT_ID =
   'vau1zxA2LbssAUEF7Gpw91zMM1LvXrvpzJtmZ58rPsn' as StringPublicKey;
@@ -86,7 +85,7 @@ export const PACK_CREATE_ID = new PublicKey(
 );
 
 export const ORACLE_ID = new PublicKey(
-  'rndshKFf48HhGaPbaCd3WQYtgCNKzRgVQ3U2we4Cvf9',
+  'SysvarS1otHashes111111111111111111111111111',
 );
 
 export const SYSTEM = new PublicKey('11111111111111111111111111111111');
