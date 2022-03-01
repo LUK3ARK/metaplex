@@ -13,8 +13,6 @@ import {
   DataV2,
   UpdateMetadataV2Args,
   MetadataData,
-  Collection,
-  Uses,
 } from '@metaplex-foundation/mpl-token-metadata';
 export const METADATA_PREFIX = 'metadata';
 export const EDITION = 'edition';
@@ -422,21 +420,6 @@ export const METADATA_SCHEMA = new Map<any, any>([
     },
   ],
   [
-    DataV2,
-    {
-      kind: 'struct',
-      fields: [
-        ['name', 'string'],
-        ['symbol', 'string'],
-        ['uri', 'string'],
-        ['sellerFeeBasisPoints', 'u16'],
-        ['creators', { kind: 'option', type: [Creator] }],
-        ['collection', { kind: 'option', type: [Collection]}],
-        ['uses', { kind: 'option', type: [Uses]}],
-      ],
-    },
-  ],
-  [
     Creator,
     {
       kind: 'struct',
@@ -599,6 +582,8 @@ export async function updateMetadataV2(
         : primarySaleHappened,
     isMutable: typeof isMutable == 'boolean' ? isMutable : null,
   });
+  // todo - remove!
+  console.log('datav2 schema is ' + DataV2.SCHEMA);
   const txnData = Buffer.from(
     serialize(
       new Map([

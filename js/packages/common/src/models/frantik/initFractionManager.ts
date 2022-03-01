@@ -2,15 +2,9 @@ import {
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
   TransactionInstruction,
-  Connection,
-  Keypair,
 } from '@solana/web3.js';
-import BN from 'bn.js';
 import { serialize } from 'borsh';
-import {
-  FRACTION_SCHEMA,
-  InitFractionManagerArgs,
-} from '../frantik';
+import { FRACTION_SCHEMA, InitFractionManagerArgs } from '../frantik';
 import { programIds, toPublicKey, StringPublicKey } from '../../utils';
 
 export async function initFractionManager(
@@ -20,13 +14,11 @@ export async function initFractionManager(
   externalFractionPriceAccount: StringPublicKey,
   fractionManagerAuthority: StringPublicKey,
   payer: StringPublicKey,
-  acceptPayment: StringPublicKey,
   store: StringPublicKey,
   instructions: TransactionInstruction[],
 ) {
   const PROGRAM_IDS = programIds();
 
-  // todo - just set this to 0
   const value = new InitFractionManagerArgs();
   const data = Buffer.from(serialize(FRACTION_SCHEMA, value));
 
@@ -62,11 +54,6 @@ export async function initFractionManager(
       isWritable: false,
     },
     {
-      pubkey: toPublicKey(acceptPayment),
-      isSigner: false,
-      isWritable: false,
-    },
-    {
       pubkey: toPublicKey(store),
       isSigner: false,
       isWritable: false,
@@ -81,10 +68,9 @@ export async function initFractionManager(
       isSigner: false,
       isWritable: false,
     },
-    
   ];
 
-    console.log("data!!!  " + data);
+  console.log('data!!!  ' + data);
   instructions.push(
     new TransactionInstruction({
       keys,
