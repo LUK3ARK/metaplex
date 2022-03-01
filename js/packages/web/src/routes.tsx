@@ -13,13 +13,15 @@ import {
   AuctionView,
   HomeView,
   StaticPageView,
-  //VaultsView, 
+  //VaultsView,
   // todo
 } from './views';
 import { AdminView } from './views/admin';
 import PackView from './views/pack';
 import { PackCreateView } from './views/packCreate';
 import { BillingView } from './views/auction/billing';
+import { CollectionsView } from './views/collections';
+import { CollectionDetailView } from './views/collections/collectionDetail';
 
 export function Routes() {
   const shouldEnableNftPacks = process.env.NEXT_ENABLE_NFT_PACKS === 'true';
@@ -88,6 +90,11 @@ export function Routes() {
               component={() => <BillingView />}
             />
             <Route path="/about" component={() => <StaticPageView />} />
+            <Route path="/collections" component={() => <CollectionsView />} />
+            <Route
+              path="/collection/:id"
+              component={() => <CollectionDetailView />}
+            />
             <Route path="/" component={() => <HomeView />} />
           </Switch>
         </Providers>
