@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, } from 'react';
 import {
   Divider,
   Steps,
@@ -9,82 +9,36 @@ import {
   Statistic,
   Progress,
   Spin,
-  Radio,
-  Card,
-  Select,
-  Checkbox,
 } from 'antd';
 import { ArtCard } from './../../components/ArtCard';
-import { MINIMUM_SAFE_FEE_AUCTION_CREATION, QUOTE_MINT } from './../../constants';
+import { QUOTE_MINT } from './../../constants';
 import { Confetti } from './../../components/Confetti';
 import { ArtSelector } from './artSelector';
 import {
   MAX_METADATA_LEN,
   useConnection,
-  WalletSigner,
-  WinnerLimit,
-  WinnerLimitType,
-  toLamports,
   useMint,
   Creator,
-  PriceFloor,
-  PriceFloorType,
   ICreateFractionArgs,
-  MetadataKey,
   StringPublicKey,
   WRAPPED_SOL_MINT,
-  shortenAddress,
-  useNativeAccount,
-  ParsedAccount,
-  MasterEditionV1,
-  MasterEditionV2,
-  toPublicKey,
-  sendTransactionWithRetry,
-  sendTransactions,
-  SequenceType,
-  VAULT_ID,
 } from '@oyster/common';
-import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
-import { Connection, LAMPORTS_PER_SOL, PublicKey, TransactionInstruction, Keypair } from '@solana/web3.js';
+//import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
+// TODO ^^ check if I need to implement this (where else is this used?)
+import { Connection, LAMPORTS_PER_SOL, PublicKey, } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { MintInfo, MintLayout } from '@solana/spl-token';
 import { useHistory, useParams } from 'react-router-dom';
-import { capitalize } from 'lodash';
-import {
-  WinningConfigType,
-  AmountRange,
-  SafetyDepositConfig,
-  TupleNumericType,
-} from '@oyster/common/dist/lib/models/metaplex/index';
-import moment from 'moment';
 import BN from 'bn.js';
-import { constants, createTokenAccount, approve } from '@oyster/common';
-import { DateTimePicker } from '../../components/DateTimePicker';
 import { AmountLabel } from '../../components/AmountLabel';
 import { useMeta } from '../../contexts';
 import useWindowDimensions from '../../utils/layout';
-import { PlusCircleOutlined } from '@ant-design/icons';
-import { SystemProgram } from '@solana/web3.js';
-import TokenDialog, { TokenButton } from '../../components/TokenDialog';
 import { useTokenList } from '../../contexts/tokenList';
-import { mintTo } from '@project-serum/serum/lib/token-instructions';
 import { TokenInfo } from '@solana/spl-token-registry'
 import { createFractionManager, FractionSafetyDepositDraft } from '../../actions/createFractionManager';
+import TokenDialog, { TokenButton } from '../../components/TokenDialog';
 
-const { Option } = Select;
 const { Step } = Steps;
-const { ZERO } = constants;
-
-interface normalPattern {
-  instructions: TransactionInstruction[];
-  signers: Keypair[];
-}
-
-interface arrayPattern {
-  instructions: TransactionInstruction[][];
-  signers: Keypair[][];
-}
-
 
 export interface FractionState {
 
@@ -109,10 +63,9 @@ export interface FractionState {
 export const FractionCreateView = () => {
   const connection = useConnection();
   const wallet = useWallet();
-  const { whitelistedCreatorsByCreator, storeIndexer } = useMeta();
+  const { whitelistedCreatorsByCreator, } = useMeta(); // todo - get 'storeIndexer' from this to (maybe at some point i have got rid of store functionality)
   const { step_param }: { step_param: string } = useParams();
   const history = useHistory();
-  const mint = useMint(QUOTE_MINT);
   const { width } = useWindowDimensions();
 
   const [step, setStep] = useState<number>(0);
@@ -137,11 +90,6 @@ export const FractionCreateView = () => {
     //@ts-ignore
     quoteMintInfoExtended: undefined,
   });
-
-  // TODO - WHAT ARE THESE FOR?
-  const [quoteMintAddress, setQuoteMintAddress] = useState<string>()
-  const [quoteMintInfo, setQuoteMintInfo] = useState<MintInfo>()
-  const [quoteMintInfoExtended, setQuoteMintInfoExtended] = useState<TokenInfo>()
 
   useEffect(() => {
     if (step_param) setStep(parseInt(step_param));
@@ -178,7 +126,6 @@ export const FractionCreateView = () => {
         fractionVaultSettings,
         safetyDepositDrafts,
         attributes.quoteMintAddress,
-        new BN(0),
       );
       setFractionObj(_fractionObj);
 
@@ -268,53 +215,29 @@ export const FractionCreateView = () => {
 };
 
 
-const CopiesStep = (props: {
+const CopiesStep = ({
+  attributes,
+  setAttributes,
+  confirm,
+}: {
   attributes: FractionState;
   setAttributes: (attr: FractionState) => void;
   confirm: () => void;
 }) => {
-  const [showTokenDialog, setShowTokenDialog] = useState(false);
-  const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
-  // give default value to mint
-
-  const { hasOtherTokens, tokenMap} = useTokenList();
-
-  // give default value to mint
-  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
-
-  props.attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
-
-  // if (props.attributes.quoteMintAddress) {
-  //   props.attributes.quoteMintInfo = useMint(props.attributes.quoteMintAddress)!
-  //   props.attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(props.attributes.quoteMintAddress)!
-  // }
-  // props.setAttributes({...props.attributes});
 
 
   let artistFilter = (i: FractionSafetyDepositDraft) =>
     !(i.metadata.info.data.creators || []).find((c: Creator) => !c.verified);
 
-  // TODO MIGHT NEED FILTERS IN THE FUTURE 
-  let filter: (i: FractionSafetyDepositDraft) => boolean = (i: FractionSafetyDepositDraft) =>
-    true;
-  // if (props.attributes.category === FractionCategory.Limited) {
-  //   filter = (i: SafetyDepositDraft) =>
-  //     !!i.masterEdition && !!i.masterEdition.info.maxSupply;
-  // } else if (props.attributes.category === FractionCategory.Open) {
-  //   filter = (i: SafetyDepositDraft) =>
-  //     !!(
-  //       i.masterEdition &&
-  //       (i.masterEdition.info.maxSupply === undefined ||
-  //         i.masterEdition.info.maxSupply === null)
-  //     );
-  // }
+  // let filter: (i: FractionSafetyDepositDraft) => boolean = (i: FractionSafetyDepositDraft) =>
+  //   true;
 
-  let overallFilter = (i: FractionSafetyDepositDraft) => filter(i) && artistFilter(i);
+  // let overallFilter = (i: FractionSafetyDepositDraft) => filter(i) && artistFilter(i);
 
   return (
     <>
       <Row className="call-to-action" style={{ marginBottom: 0 }}>
-        <h2>Select an Item to Fraktionalize</h2>
+        <h2>Select an Item to Frack</h2>
         <p style={{ fontSize: '1.2rem' }}>
           Select the item(s) that you want to add to the vault.  <a>What is a vault?</a>
         </p>
@@ -323,9 +246,9 @@ const CopiesStep = (props: {
         <Col xl={24}>
           <ArtSelector
             filter={artistFilter}
-            selected={props.attributes.items}
+            selected={attributes.items}
             setSelected={items => {
-              props.setAttributes({ ...props.attributes, items });
+              setAttributes({ ...attributes, items });
             }}
             allowMultiple={true}
           >
@@ -338,7 +261,7 @@ const CopiesStep = (props: {
           type="primary"
           size="large"
           onClick={() => {
-            props.confirm();
+            confirm();
           }}
           className="action-btn"
         >
@@ -349,19 +272,56 @@ const CopiesStep = (props: {
   );
 };
 
-const PriceFractionsStep = (props: {
+const PriceFractionsStep = ({
+  attributes,
+  setAttributes,
+  confirm,
+}: {
   attributes: FractionState;
   setAttributes: (attr: FractionState) => void;
   confirm: () => void;
 }) => {
+
+  const [showTokenDialog, setShowTokenDialog] = useState(false);
+  const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
+
+  attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
+
+  if (attributes.quoteMintAddress) {
+    attributes.quoteMintInfo = useMint(attributes.quoteMintAddress)!
+    attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(attributes.quoteMintAddress)!
+  }
+  setAttributes({...attributes});
+
+  const { hasOtherTokens, tokenMap} = useTokenList();
+
+  // give default value to mint
+  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
+
   return (
     <>
       <Row className="call-to-action">
         <h2>Configure Fractions</h2>
-        <p>Set the price and total supply of your soon-to-be fraction tokens!</p>
+        <p>Set the price and total supply of your fraction tokens.</p>
       </Row>
       <Row className="content-action">
         <Col className="section" xl={24}>
+          {hasOtherTokens && (
+            <label className="action-field">
+              <span className="field-title">Auction mint</span>
+              <TokenButton
+                mint={mint}
+                onClick={() => setShowTokenDialog(true)}
+              />
+              <TokenDialog
+                setMint={setMint}
+                open={showTokenDialog}
+                onClose={() => {
+                  setShowTokenDialog(false);
+                }}
+              />
+            </label>
+          )}
           <label className="action-field">
             <span className="field-title">Price</span>
             <span className="field-info">
@@ -374,10 +334,10 @@ const PriceFractionsStep = (props: {
               className="input"
               placeholder="Buyout Price"
               prefix="◎"
-              suffix="SOL"
+              suffix={mintInfo?.symbol || 'CUSTOM'}
               onChange={info =>
-                props.setAttributes({
-                  ...props.attributes,
+                setAttributes({
+                  ...attributes,
                   buyoutPrice: parseFloat(info.target.value)
                 })
               }
@@ -395,8 +355,8 @@ const PriceFractionsStep = (props: {
               className="input"
               placeholder="Token Supply"
               onChange={info =>
-                props.setAttributes({
-                  ...props.attributes,
+                setAttributes({
+                  ...attributes,
                   fractionSupply: parseInt(info.target.value),
                 })
               }
@@ -414,8 +374,8 @@ const PriceFractionsStep = (props: {
               className="input"
               placeholder="Ticker"
               onChange={info =>
-                props.setAttributes({
-                  ...props.attributes,
+                setAttributes({
+                  ...attributes,
                   ticker: info.target.value,
                 })
               }
@@ -427,7 +387,7 @@ const PriceFractionsStep = (props: {
         <Button
           type="primary"
           size="large"
-          onClick={props.confirm}
+          onClick={confirm}
           className="action-btn"
         >
           Continue
