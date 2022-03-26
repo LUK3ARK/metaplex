@@ -36,11 +36,35 @@ export const getStoreID = async (storeOwnerAddress?: string) => {
   return storeAddress;
 };
 
+export const getFrackHouseID = async (frackHouseOwnerAddress?: string) => {
+  if (!frackHouseOwnerAddress) {
+    return undefined;
+  }
+
+  console.log('Frack House owner', frackHouseOwnerAddress, FRANTIK_ID);
+  const programs = await findProgramAddress(
+    [
+      Buffer.from('frantik'),
+      toPublicKey(FRANTIK_ID).toBuffer(),
+      toPublicKey(frackHouseOwnerAddress).toBuffer(),
+    ],
+    toPublicKey(FRANTIK_ID),
+  );
+  const frackHouseAddress = programs[0];
+
+  return frackHouseAddress;
+};
+
 export const setProgramIds = async (store?: string) => {
   STORE = store ? toPublicKey(store) : undefined;
 };
 
+export const setFrackHouseId = async (frackHouse?: string) => {
+  FRACK_HOUSE = frackHouse ? toPublicKey(frackHouse) : undefined;
+};
+
 let STORE: PublicKey | undefined;
+let FRACK_HOUSE: PublicKey | undefined;
 
 export const programIds = () => {
   return {
@@ -56,6 +80,7 @@ export const programIds = () => {
     pack_create: PACK_CREATE_ID,
     oracle: ORACLE_ID,
     store: STORE,
+    frack_house: FRACK_HOUSE,
     frantik: FRANTIK_ID,
   };
 };

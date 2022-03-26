@@ -127,7 +127,7 @@ export async function createAuctionManager(
     priceMint,
     instructions: epaInstructions,
     signers: epaSigners,
-  } = await createExternalPriceAccount(connection, wallet);
+  } = await createExternalPriceAccount(connection, wallet,);
 
   const {
     instructions: createVaultInstructions,

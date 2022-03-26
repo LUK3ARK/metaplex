@@ -2,6 +2,7 @@ import {
   AUCTION_ID,
   METADATA_PROGRAM_ID,
   METAPLEX_ID,
+  FRANTIK_ID,
   StringPublicKey,
   toPublicKey,
   VAULT_ID,
@@ -28,6 +29,7 @@ import {
   StoreIndexer,
   WhitelistedCreator,
 } from '../../models/metaplex';
+import { getVaultCache } from '../../models/frantik';
 import { Connection, PublicKey } from '@solana/web3.js';
 import {
   AccountAndPubkey,
@@ -39,6 +41,7 @@ import {
 import { isMetadataPartOfStore } from './isMetadataPartOfStore';
 import { processAuctions } from './processAuctions';
 import { processMetaplexAccounts } from './processMetaplexAccounts';
+import { processFrantikAccounts } from './processFrantikAccounts';
 import { processMetaData } from './processMetaData';
 import { processVaultData } from './processVaultData';
 import { ParsedAccount } from '../accounts/types';
@@ -465,6 +468,12 @@ export const pullAuctionSubaccounts = async (
     console.log('-----> No auction cache exists for', auction, 'returning');
     return tempCache;
   }
+  const forEach =
+    (fn: ProcessAccountsFunc) => async (accounts: AccountAndPubkey[]) => {
+      for (const account of accounts) {
+        await fn(account, updateTemp);
+      }
+    };
   const auctionExtKey = await getAuctionExtended({
     auctionProgramId: AUCTION_ID,
     resource: cache.vault,
@@ -495,7 +504,7 @@ export const pullAuctionSubaccounts = async (
           },
         },
       ],
-    }).then(forEach(processAuctions, updateTemp)),
+    }).then(forEach(processAuctions)),
 
     // bidder pot pull
     getProgramAccounts(connection, AUCTION_ID, {
@@ -507,7 +516,7 @@ export const pullAuctionSubaccounts = async (
           },
         },
       ],
-    }).then(forEach(processAuctions, updateTemp)),
+    }).then(forEach(processAuctions)),
     // safety deposit pull
     getProgramAccounts(connection, VAULT_ID, {
       filters: [
@@ -518,7 +527,7 @@ export const pullAuctionSubaccounts = async (
           },
         },
       ],
-    }).then(forEach(processVaultData, updateTemp)),
+    }).then(forEach(processVaultData)),
 
     // bid redemptions
     getProgramAccounts(connection, METAPLEX_ID, {
@@ -530,8 +539,8 @@ export const pullAuctionSubaccounts = async (
           },
         },
       ],
-    }).then(forEach(processMetaplexAccounts, updateTemp)),
-    // bdis where you arent winner
+    }).then(forEach(processMetaplexAccounts)),
+    // bids where you arent winner
     getProgramAccounts(connection, METAPLEX_ID, {
       filters: [
         {
@@ -541,7 +550,7 @@ export const pullAuctionSubaccounts = async (
           },
         },
       ],
-    }).then(forEach(processMetaplexAccounts, updateTemp)),
+    }).then(forEach(processMetaplexAccounts)),
     // safety deposit configs
     getProgramAccounts(connection, METAPLEX_ID, {
       filters: [
@@ -552,7 +561,7 @@ export const pullAuctionSubaccounts = async (
           },
         },
       ],
-    }).then(forEach(processMetaplexAccounts, updateTemp)),
+    }).then(forEach(processMetaplexAccounts)),
     // prize tracking tickets
     ...cache.metadata
       .map(md =>
@@ -565,12 +574,70 @@ export const pullAuctionSubaccounts = async (
               },
             },
           ],
-        }).then(forEach(processMetaplexAccounts, updateTemp)),
+        }).then(forEach(processMetaplexAccounts)),
       )
       .flat(),
   ];
   await Promise.all(promises);
   console.log('---------->Pulled sub accounts for auction', auction);
+
+  return tempCache;
+};
+
+export const pullVaultSubaccounts = async (
+  connection: Connection,
+  vault: StringPublicKey,
+  tempCache: MetaState,
+) => {
+  const updateTemp = makeSetter(tempCache);
+  let cacheKey;
+  try {
+    cacheKey = await getVaultCache(vault);
+  } catch (e) {
+    console.log(e);
+    console.log('Failed to get vault cache key');
+    return tempCache;
+  }
+  const cache = tempCache.vaultCaches[cacheKey]?.info;
+  if (!cache) {
+    console.log('-----> No vault cache exists for', vault, 'returning');
+    return tempCache;
+  }
+  const promises = [
+    // pull editions
+    pullEditions(
+      connection,
+      updateTemp,
+      tempCache,
+      cache.metadata.map(m => tempCache.metadataByMetadata[m]),
+    ),
+
+    // safety deposit pull
+    getProgramAccounts(connection, VAULT_ID, {
+      filters: [
+        {
+          memcmp: {
+            offset: 1,
+            bytes: cache.vault,
+          },
+        },
+      ],
+    }).then(forEach(processVaultData, updateTemp)),
+
+    // safety deposit configs
+    getProgramAccounts(connection, FRANTIK_ID, {
+      filters: [
+        {
+          memcmp: {
+            offset: 1,
+            bytes: cache.fractionManager,
+          },
+        },
+      ],
+    }).then(forEach(processFrantikAccounts, updateTemp)),
+  ];
+  await Promise.all(promises);
+  console.log('---------->Pulled sub accounts for vault', vault);
 
   return tempCache;
 };
@@ -1256,6 +1323,18 @@ export const makeSetter =
       if (!alreadyHasInState) {
         state.packCardsByPackSet[key].push(value);
       }
+    } else if (prop === 'frackHouseIndexer') {
+      state.frackHouseIndexer = state.frackHouseIndexer.filter(
+        p => p.info.page.toNumber() != value.info.page.toNumber(),
+      );
+      state.frackHouseIndexer.push(value);
+      state.frackHouseIndexer = state.frackHouseIndexer.sort((a, b) =>
+        a.info.page.sub(b.info.page).toNumber(),
+      );
+    } else if (prop === 'frackHouse') {
+      state[prop] = value;
+    } else if (prop === 'operatingConfig') {
+      state[prop] = value;
     } else {
       state[prop][key] = value;
     }

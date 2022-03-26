@@ -11,10 +11,11 @@ export async function initFractionManager(
   fractionManager: StringPublicKey,
   vault: StringPublicKey,
   tokenMint: StringPublicKey,
+  fractionMint: StringPublicKey,
   externalFractionPriceAccount: StringPublicKey,
   fractionManagerAuthority: StringPublicKey,
   payer: StringPublicKey,
-  store: StringPublicKey,
+  frackHouse: StringPublicKey,
   instructions: TransactionInstruction[],
 ) {
   const PROGRAM_IDS = programIds();
@@ -44,6 +45,11 @@ export async function initFractionManager(
       isWritable: true,
     },
     {
+      pubkey: toPublicKey(fractionMint),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
       pubkey: toPublicKey(fractionManagerAuthority),
       isSigner: true,
       isWritable: false,
@@ -54,7 +60,7 @@ export async function initFractionManager(
       isWritable: false,
     },
     {
-      pubkey: toPublicKey(store),
+      pubkey: toPublicKey(frackHouse),
       isSigner: false,
       isWritable: false,
     },
@@ -70,11 +76,12 @@ export async function initFractionManager(
     },
   ];
 
+  // todo
   console.log('data!!!  ' + data);
   instructions.push(
     new TransactionInstruction({
       keys,
-      programId: toPublicKey(PROGRAM_IDS.metaplex),
+      programId: toPublicKey(PROGRAM_IDS.frantik),
       data,
     }),
   );

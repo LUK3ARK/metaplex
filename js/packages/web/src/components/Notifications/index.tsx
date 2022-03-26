@@ -352,6 +352,7 @@ export function useSettlementAuctions({
   });
 }
 
+// todo - shuld i add the fractionManagersByVault thing and allow that to make notifications?
 export function Notifications() {
   const {
     metadata,

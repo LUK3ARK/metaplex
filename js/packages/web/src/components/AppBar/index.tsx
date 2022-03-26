@@ -11,7 +11,7 @@ import {
   CurrentUserBadge,
   CurrentUserBadgeMobile,
 } from '../CurrentUserBadge';
-import { ConnectButton } from '@oyster/common';
+import { ConnectButton, FrantikKey } from '@oyster/common';
 import { MobileNavbar } from '../MobileNavbar';
 
 const getDefaultLinkActions = (connected: boolean) => {
@@ -19,14 +19,14 @@ const getDefaultLinkActions = (connected: boolean) => {
     <Link to={`/`} key={'explore'}>
       <Button className="app-btn">Explore</Button>
     </Link>,
-    <Link to={`/collections`} key={'collections'}>
-      <Button className="app-btn">Collections</Button>
-    </Link>,
     <Link to={`/artworks`} key={'artwork'}>
       <Button className="app-btn">{connected ? 'My Items' : 'Artwork'}</Button>
     </Link>,
     <Link to={`/artists`} key={'artists'}>
       <Button className="app-btn">Creators</Button>
+    </Link>,
+    <Link to={`/fraction/create/0`} key={'frack'}>
+      <Button className="app-btn">Frack</Button>
     </Link>,
     <Link to={`/fraction/create/0`} key={'frack'}>
       <Button className="app-btn">Frack</Button>
@@ -57,7 +57,7 @@ export const MetaplexMenu = () => {
     return (
       <>
         <Modal
-          title={<img src={'/metaplex-logo.svg'} />}
+          title={'Franti.k'}
           visible={isModalVisible}
           footer={null}
           className={'modal-box'}
@@ -116,7 +116,7 @@ export const MetaplexMenu = () => {
 export const LogoLink = () => {
   return (
     <Link to={`/`}>
-      <img src={'/metaplex-logo.svg'} />
+      <img src={'/frantik-logo.svg'} className="frantik-logo"/>
     </Link>
   );
 };
@@ -128,9 +128,8 @@ export const AppBar = () => {
       <MobileNavbar />
       <div id="desktop-navbar">
         <div className="app-left">
-          <LogoLink />
-          &nbsp;&nbsp;&nbsp;
-          <MetaplexMenu />
+          <LogoLink/>
+          <MetaplexMenu/>
         </div>
         <div className="app-right">
           {!connected && (

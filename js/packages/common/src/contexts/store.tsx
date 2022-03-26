@@ -15,7 +15,7 @@ interface StoreConfig {
   // Store was configured via ENV or query params
   isConfigured: boolean;
   // Initial calculating of store address completed (successfully or not)
-  isReady: boolean;
+  isStoreReady: boolean;
   // recalculate store address for specified owner address
   setStoreForOwner: (ownerAddress?: string) => Promise<string | undefined>;
 }
@@ -34,17 +34,17 @@ export const StoreProvider: FC<{
   const isConfigured = Boolean(initStoreAddress || initOwnerAddress);
 
   const [store, setStore] = useState<
-    Pick<StoreConfig, 'storeAddress' | 'isReady'>
+    Pick<StoreConfig, 'storeAddress' | 'isStoreReady'>
   >({
     storeAddress: initStoreAddress,
-    isReady: Boolean(!initOwnerAddress || initStoreAddress),
+    isStoreReady: Boolean(!initOwnerAddress || initStoreAddress),
   });
 
   const setStoreForOwner = useMemo(
     () => async (ownerAddress?: string) => {
       const storeAddress = await getStoreID(ownerAddress);
       setProgramIds(storeAddress); // fallback
-      setStore({ storeAddress, isReady: true });
+      setStore({ storeAddress, isStoreReady: true });
       console.log(`CUSTOM STORE: ${storeAddress}`);
       return storeAddress;
     },

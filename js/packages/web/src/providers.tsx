@@ -2,6 +2,7 @@ import {
   AccountsProvider,
   ConnectionProvider,
   StoreProvider,
+  FrackHouseProvider,
   WalletProvider,
   MetaProvider,
 } from '@oyster/common';
@@ -23,6 +24,10 @@ export const Providers: FC = ({ children }) => {
                 ownerAddress={process.env.NEXT_PUBLIC_STORE_OWNER_ADDRESS}
                 storeAddress={process.env.NEXT_PUBLIC_STORE_ADDRESS}
               >
+                <FrackHouseProvider
+                  ownerAddress={process.env.NEXT_PUBLIC_FRACK_HOUSE_OWNER_ADDRESS}
+                  frackHouseAddress={process.env.NEXT_PUBLIC_FRACK_HOUSE_ADDRESS}
+                >
                 <MetaProvider>
                   <LoaderProvider>
                     <ConfettiProvider>
@@ -30,6 +35,7 @@ export const Providers: FC = ({ children }) => {
                     </ConfettiProvider>
                   </LoaderProvider>
                 </MetaProvider>
+                </FrackHouseProvider>
               </StoreProvider>
             </CoingeckoProvider>
           </SPLTokenListProvider>

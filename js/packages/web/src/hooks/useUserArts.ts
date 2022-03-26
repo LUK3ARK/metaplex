@@ -121,10 +121,10 @@ export const useUserArtsAsFractionDrafts = (): FractionSafetyDepositDraft[] => {
     const masterEdition = possibleMasterEditions[i];
 
     let fractionWinningConfigType: FractionWinningConfigType =
-      FractionWinningConfigType.FractionToken;
+      FractionWinningConfigType.TokenOnlyBuyout;
     if (masterEdition?.info.key == MetadataKey.MasterEditionV2) {
       fractionWinningConfigType =
-        FractionWinningConfigType.FractionMasterEdtionV2;
+        FractionWinningConfigType.FullRightsBuyout;
     }
 
     if (a) {

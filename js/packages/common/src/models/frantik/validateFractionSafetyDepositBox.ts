@@ -7,7 +7,7 @@ import { serialize } from 'borsh';
 
 import {
   getFractionManagerKey,
-  getFractionOriginalAuthority,
+  getFrackOriginalAuthority,
   getFractionSafetyDepositConfig,
   FractionSafetyDepositConfig,
   FRACTION_SCHEMA,
@@ -26,7 +26,7 @@ export async function validateFractionSafetyDepositBox(
   payer: StringPublicKey,
   instructions: TransactionInstruction[],
   edition: StringPublicKey,
-  whitelistedCreator: StringPublicKey | undefined,
+  whitelistedFracker: StringPublicKey | undefined,
   store: StringPublicKey,
   safetyDepositConfig: FractionSafetyDepositConfig,
   fractionalMint: StringPublicKey,
@@ -35,7 +35,7 @@ export async function validateFractionSafetyDepositBox(
 
   const fractionManagerKey = await getFractionManagerKey(vault, fractionalMint);
 
-  const originalAuthorityLookup = await getFractionOriginalAuthority(
+  const originalAuthorityLookup = await getFrackOriginalAuthority(
     vault,
     metadata,
   );
@@ -70,7 +70,7 @@ export async function validateFractionSafetyDepositBox(
       isWritable: true,
     },
     {
-      pubkey: toPublicKey(whitelistedCreator || SystemProgram.programId),
+      pubkey: toPublicKey(whitelistedFracker || SystemProgram.programId),
       isSigner: false,
       isWritable: false,
     },
@@ -140,7 +140,7 @@ export async function validateFractionSafetyDepositBox(
   instructions.push(
     new TransactionInstruction({
       keys,
-      programId: toPublicKey(PROGRAM_IDS.metaplex),
+      programId: toPublicKey(PROGRAM_IDS.frantik),
       data,
     }),
   );

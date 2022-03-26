@@ -36,6 +36,7 @@ enum AuctionType {
 
 const LOOKUP: Record<string, string> = {};
 
+// todo - add vault and fraction manager stuff to analytics
 const rerun = async ({
   auctionViews,
   auctionManagersByAuction,

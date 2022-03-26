@@ -9,7 +9,7 @@ import {
   SafetyDepositBox,
   Vault,
 } from '../../actions';
-import { ParsedAccount } from '../../contexts';
+import { ParsedAccount, AccountParser } from '../../contexts';
 import {
   findProgramAddress,
   programIds,
@@ -22,31 +22,34 @@ import { CACHE, INDEX, TupleNumericType } from '../metaplex';
 export * from './initFractionManager';
 export * from './validateFractionSafetyDepositBox';
 export const FRANTIK_PREFIX = 'frantik';
+export const FRACTION_CONFIG_PREFIX = 'config';
 
 // TODO
 export enum FrantikKey {
   Uninitialized = 0,
-  StoreIndexerV1 = 1,
-  VaultCacheV1 = 2,
-  FractionManagerV1 = 3,
-  FractionSafetyDepositConfigV1 = 4,
-  StoreV1 = 5,
-
+  OriginalAuthorityLookupV1 = 1,
+  FrackHouseV1 = 2,
+  WhitelistedFrackerV1 = 3,
+  FrackHouseIndexerV1 = 4,
+  VaultCacheV1 = 5,
+  FractionManagerV1 = 6,
+  FractionSafetyDepositConfigV1 = 7,
+  OperatingConfigV1 = 8
 }
 
-export class FractionStoreIndexer {
-  key: FrantikKey = FrantikKey.StoreIndexerV1;
-  store: StringPublicKey;
+export class FrackHouseIndexer {
+  key: FrantikKey = FrantikKey.FrackHouseIndexerV1;
+  frackHouse: StringPublicKey;
   page: BN;
   vaultCaches: StringPublicKey[];
 
   constructor(args: {
-    store: StringPublicKey;
+    frackHouse: StringPublicKey;
     page: BN;
     vaultCaches: StringPublicKey[];
   }) {
-    this.key = FrantikKey.StoreIndexerV1;
-    this.store = args.store;
+    this.key = FrantikKey.FrackHouseIndexerV1;
+    this.frackHouse = args.frackHouse;
     this.page = args.page;
     this.vaultCaches = args.vaultCaches;
   }
@@ -54,21 +57,21 @@ export class FractionStoreIndexer {
 
 export class VaultCache {
   key: FrantikKey = FrantikKey.VaultCacheV1;
-  store: StringPublicKey;
+  frackHouse: StringPublicKey;
   timestamp: BN;
   metadata: StringPublicKey[];
   vault: StringPublicKey;
   fractionManager: StringPublicKey;
 
   constructor(args: {
-    store: StringPublicKey;
+    frackHouse: StringPublicKey;
     timestamp: BN;
     metadata: StringPublicKey[];
     vault: StringPublicKey;
     fractionManager: StringPublicKey;
   }) {
     this.key = FrantikKey.VaultCacheV1;
-    this.store = args.store;
+    this.frackHouse = args.frackHouse;
     this.timestamp = args.timestamp;
     this.metadata = args.metadata;
     this.vault = args.vault;
@@ -78,19 +81,19 @@ export class VaultCache {
 
 export class FractionManager {
   key: FrantikKey;
-  store: StringPublicKey;
+  frackHouse: StringPublicKey;
   authority: StringPublicKey;
   vault: StringPublicKey;
   state: FractionManagerState;
 
   constructor(args: {
-    store: StringPublicKey;
+    frackHouse: StringPublicKey;
     authority: StringPublicKey;
     vault: StringPublicKey;
     state: FractionManagerState;
   }) {
     this.key = FrantikKey.FractionManagerV1;
-    this.store = args.store;
+    this.frackHouse = args.frackHouse;
     this.authority = args.authority;
     this.vault = args.vault;
     this.state = args.state;
@@ -120,11 +123,11 @@ export enum ProxyCallBuyoutAddress {
   RedeemFullRightsBuyout = 1,
 }
 
-export class SetFractionStoreArgs {
+export class SetFrackHouseArgs {
   instruction = 8;
-  public: boolean;
-  constructor(args: { public: boolean }) {
-    this.public = args.public;
+  isPublic: boolean;
+  constructor(args: { isPublic: boolean }) {
+    this.isPublic = args.isPublic;
   }
 }
 
@@ -132,7 +135,7 @@ export class DecommissionFractionManagerArgs {
   instruction = 13;
 }
 
-export class SetFractionStoreIndexArgs {
+export class SetFrackHouseIndexArgs {
   instruction = 21;
   page: BN;
   offset: BN;
@@ -160,23 +163,103 @@ export enum FractionWinningConfigType {
   /// No metadata ownership is transferred in this instruction, which means while you may be transferring
   /// the token for a limited/open edition away, you would still be (nominally) the owner of the limited edition
   /// metadata, though it confers no rights or privileges of any kind.
-  FractionMasterEdtionV2,
+  TokenOnlyBuyout,
   /// Means you are fractionalising the master edition record and it's metadata ownership as well as the
   /// token itself. The other person will be able to mint authorization tokens and make changes to the
   /// artwork (once combined and redeemable by the new owner).
-  FractionToken,
+  FullRightsBuyout,
 }
 
-export const decodeFractionStoreIndexer = (buffer: Buffer) => {
-  return deserializeUnchecked(FRACTION_SCHEMA, FractionStoreIndexer, buffer) as FractionStoreIndexer;
+export class WhitelistedFracker{
+  key: FrantikKey = FrantikKey.WhitelistedFrackerV1;
+  address: StringPublicKey;
+  activated: boolean = true;
+
+  // TODO - eventually just link this kind of thing to other creator too? maybe not tbf
+  // Populated from name service
+  twitter?: string;
+  name?: string;
+  image?: string;
+  description?: string;
+  background?: string;
+
+  constructor(args: { address: string; activated: boolean }) {
+    this.address = args.address;
+    this.activated = args.activated;
+  }
+}
+
+export class OperatingConfig{
+  key: FrantikKey = FrantikKey.OperatingConfigV1;
+  centralOwner: StringPublicKey;
+  centralFeeBasisPoints: Number;
+  sellerFeeBasisPoints: Number;
+
+  constructor(args: { centralOwner: StringPublicKey; centralFeeBasisPoints: number; sellerFeeBasisPoints: number; }) {
+    this.centralOwner = args.centralOwner;
+    this.centralFeeBasisPoints = args.centralFeeBasisPoints;
+    this.sellerFeeBasisPoints = args.sellerFeeBasisPoints;
+  }
+}
+
+export const WhitelistedFrackerParser: AccountParser = (
+  pubkey: StringPublicKey,
+  account: AccountInfo<Buffer>,
+) => ({
+  pubkey,
+  account,
+  info: decodeWhitelistedFracker(account.data),
+});
+
+export const isFrackerPartOfFrackHouse = async (
+  frackerAddress: StringPublicKey,
+  pubkey: StringPublicKey,
+  frackHouse?: StringPublicKey,
+) => {
+  const frackerKeyInStore = await getWhitelistedFracker(frackerAddress, frackHouse);
+
+  return frackerKeyInStore === pubkey;
+};
+
+export async function getWhitelistedFracker(
+  fracker: StringPublicKey,
+  frackHouseId?: StringPublicKey,
+) {
+  const PROGRAM_IDS = programIds();
+
+  const frackHouse = frackHouseId || PROGRAM_IDS.frack_house;
+  
+  if (!frackHouse) {
+    throw new Error('Store not initialized');
+  }
+
+  return (
+    await findProgramAddress(
+      [
+        Buffer.from(FRANTIK_PREFIX),
+        toPublicKey(PROGRAM_IDS.frantik).toBuffer(),
+        toPublicKey(frackHouse).toBuffer(),
+        toPublicKey(fracker).toBuffer(),
+      ],
+      toPublicKey(PROGRAM_IDS.frantik),
+    )
+  )[0];
+}
+
+export const decodeFrackHouseIndexer = (buffer: Buffer) => {
+  return deserializeUnchecked(FRACTION_SCHEMA, FrackHouseIndexer, buffer) as FrackHouseIndexer;
 };
 
 export const decodeVaultCache = (buffer: Buffer) => {
   return deserializeUnchecked(FRACTION_SCHEMA, VaultCache, buffer) as VaultCache;
 };
 
-export const decodeFractionStore = (buffer: Buffer) => {
-  return deserializeUnchecked(FRACTION_SCHEMA, FractionStore, buffer) as FractionStore;
+export const decodeFrackHouse = (buffer: Buffer) => {
+  return deserializeUnchecked(FRACTION_SCHEMA, FrackHouse, buffer) as FrackHouse;
+};
+
+export const decodeOperatingConfig = (buffer: Buffer) => {
+  return deserializeUnchecked(FRACTION_SCHEMA, OperatingConfig, buffer) as OperatingConfig;
 };
 
 export const decodeFractionManager = (
@@ -191,25 +274,27 @@ export const decodeFractionSafetyDepositConfig = (buffer: Buffer) => {
   });
 };
 
-// todo - fix this dont need this, but I do want to redo whole store thing anyway...
-export class FractionStore {
-  key: FrantikKey = FrantikKey.StoreV1;
-  public: boolean = true;
+export const decodeWhitelistedFracker = (buffer: Buffer) => {
+  return deserializeUnchecked(
+    FRACTION_SCHEMA,
+    WhitelistedFracker,
+    buffer,
+  ) as WhitelistedFracker;
+};
+
+
+export class FrackHouse {
+  key: FrantikKey = FrantikKey.FrackHouseV1;
   tokenVaultProgram: StringPublicKey;
-  auctionProgram: StringPublicKey;
   tokenMetadataProgram: StringPublicKey;
   tokenProgram: StringPublicKey;
 
   constructor(args: {
-    public: boolean;
-    auctionProgram: StringPublicKey;
     tokenVaultProgram: StringPublicKey;
     tokenMetadataProgram: StringPublicKey;
     tokenProgram: StringPublicKey;
   }) {
-    this.key = FrantikKey.StoreV1;
-    this.public = args.public;
-    this.auctionProgram = args.auctionProgram;
+    this.key = FrantikKey.FrackHouseV1;
     this.tokenVaultProgram = args.tokenVaultProgram;
     this.tokenMetadataProgram = args.tokenMetadataProgram;
     this.tokenProgram = args.tokenProgram;
@@ -237,11 +322,15 @@ export class InitFractionManagerArgs {
   instruction = 17;
 }
 
+export class FullRightsTokenTransferArgs {
+  instruction = 0;
+}
+
 export class FractionSafetyDepositConfig {
   key: FrantikKey = FrantikKey.FractionSafetyDepositConfigV1;
   fractionManager: StringPublicKey = SystemProgram.programId.toBase58();
   order: BN = new BN(0);
-  fractionWinningConfigType: FractionWinningConfigType = FractionWinningConfigType.FractionToken;
+  fractionWinningConfigType: FractionWinningConfigType = FractionWinningConfigType.TokenOnlyBuyout;
 
   constructor(args: {
     data?: Uint8Array;
@@ -290,14 +379,14 @@ export class ValidateFractionSafetyDepositBoxArgs {
 
 export const FRACTION_SCHEMA = new Map<any, any>([
   [
-    FractionStoreIndexer,
+    FrackHouseIndexer,
     {
       kind: 'struct',
       fields: [
         ['key', 'u8'],
-        ['store', 'pubkeyAsString'],
+        ['frackHouse', 'pubkeyAsString'],
         ['page', 'u64'],
-        ['auctionCaches', ['pubkeyAsString']],
+        ['vaultCaches', ['pubkeyAsString']],
       ],
     },
   ],
@@ -307,12 +396,11 @@ export const FRACTION_SCHEMA = new Map<any, any>([
       kind: 'struct',
       fields: [
         ['key', 'u8'],
-        ['store', 'pubkeyAsString'],
+        ['frack_house', 'pubkeyAsString'],
         ['timestamp', 'u64'],
         ['metadata', ['pubkeyAsString']],
-        ['auction', 'pubkeyAsString'],
         ['vault', 'pubkeyAsString'],
-        ['auctionManager', 'pubkeyAsString'],
+        ['fractionManager', 'pubkeyAsString'],
       ],
     },
   ],
@@ -322,7 +410,7 @@ export const FRACTION_SCHEMA = new Map<any, any>([
       kind: 'struct',
       fields: [
         ['key', 'u8'],
-        ['store', 'pubkeyAsString'],
+        ['frackHouse', 'pubkeyAsString'],
         ['authority', 'pubkeyAsString'],
         ['vault', 'pubkeyAsString'],
         ['state', FractionManagerState],
@@ -330,13 +418,11 @@ export const FRACTION_SCHEMA = new Map<any, any>([
     },
   ],
   [
-    FractionStore,
+    FrackHouse,
     {
       kind: 'struct',
       fields: [
         ['key', 'u8'],
-        ['public', 'u8'],
-        ['auctionProgram', 'pubkeyAsString'],
         ['tokenVaultProgram', 'pubkeyAsString'],
         ['tokenMetadataProgram', 'pubkeyAsString'],
         ['tokenProgram', 'pubkeyAsString'],
@@ -382,6 +468,17 @@ export const FRACTION_SCHEMA = new Map<any, any>([
     },
   ],
   [
+    WhitelistedFracker,
+    {
+      kind: 'struct',
+      fields: [
+        ['key', 'u8'],
+        ['address', 'pubkeyAsString'],
+        ['activated', 'u8'],
+      ],
+    },
+  ],
+  [
     ValidateFractionSafetyDepositBoxArgs,
     {
       kind: 'struct',
@@ -413,7 +510,7 @@ export const FRACTION_SCHEMA = new Map<any, any>([
     },
   ],
   [
-    SetFractionStoreIndexArgs,
+    SetFrackHouseIndexArgs,
     {
       kind: 'struct',
       fields: [
@@ -424,12 +521,11 @@ export const FRACTION_SCHEMA = new Map<any, any>([
     },
   ],
   [
-    SetFractionStoreArgs,
+    SetFrackHouseArgs,
     {
       kind: 'struct',
       fields: [
         ['instruction', 'u8'],
-        ['public', 'u8'], //bool
       ],
     },
   ],
@@ -449,7 +545,19 @@ export async function getFractionManagerKey(
   )[0];
 }
 
-export async function getFractionOriginalAuthority(
+export async function getOperatingConfig(): Promise<string> {
+  const PROGRAM_IDS = programIds();
+
+  return (
+    await findProgramAddress(
+      [Buffer.from(FRANTIK_PREFIX), toPublicKey(PROGRAM_IDS.frantik).toBuffer(), Buffer.from(FRACTION_CONFIG_PREFIX)],
+      toPublicKey(PROGRAM_IDS.frantik),
+    )
+  )[0];
+}
+
+// todo - see where getoriginalauthority is used and apply this like that
+export async function getFrackOriginalAuthority(
   vaultKey: string,
   metadata: string,
 ): Promise<string> {
@@ -472,9 +580,9 @@ export async function getFractionSafetyDepositConfig(
   safetyDeposit: string,
 ) {
   const PROGRAM_IDS = programIds();
-  const store = PROGRAM_IDS.store;
-  if (!store) {
-    throw new Error('Store not initialized');
+  const frackHouse = PROGRAM_IDS.frack_house;
+  if (!frackHouse) {
+    throw new Error('Frack House not initialized');
   }
 
   return (
@@ -490,11 +598,11 @@ export async function getFractionSafetyDepositConfig(
   )[0];
 }
 
-export async function getFractionStoreIndexer(page: number) {
+export async function getFrackHouseIndexer(page: number) {
   const PROGRAM_IDS = programIds();
-  const store = PROGRAM_IDS.store;
-  if (!store) {
-    throw new Error('Store not initialized');
+  const frackHouse = PROGRAM_IDS.frack_house;
+  if (!frackHouse) {
+    throw new Error('Frack House not initialized');
   }
 
   return (
@@ -502,7 +610,7 @@ export async function getFractionStoreIndexer(page: number) {
       [
         Buffer.from(FRANTIK_PREFIX),
         toPublicKey(PROGRAM_IDS.frantik).toBuffer(),
-        toPublicKey(store).toBuffer(),
+        toPublicKey(frackHouse).toBuffer(),
         Buffer.from(INDEX),
         Buffer.from(page.toString()),
       ],
@@ -513,9 +621,9 @@ export async function getFractionStoreIndexer(page: number) {
 
 export async function getVaultCache(vault: StringPublicKey) {
   const PROGRAM_IDS = programIds();
-  const store = PROGRAM_IDS.store;
-  if (!store) {
-    throw new Error('Store not initialized');
+  const frackHouse = PROGRAM_IDS.frack_house;
+  if (!frackHouse) {
+    throw new Error('Frack House not initialized');
   }
   console.log('Vault', vault);
   return (
@@ -523,7 +631,7 @@ export async function getVaultCache(vault: StringPublicKey) {
       [
         Buffer.from(FRANTIK_PREFIX),
         toPublicKey(PROGRAM_IDS.frantik).toBuffer(),
-        toPublicKey(store).toBuffer(),
+        toPublicKey(frackHouse).toBuffer(),
         toPublicKey(vault).toBuffer(),
         Buffer.from(CACHE),
       ],

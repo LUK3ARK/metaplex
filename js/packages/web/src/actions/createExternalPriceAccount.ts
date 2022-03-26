@@ -25,6 +25,9 @@ import { QUOTE_MINT } from '../constants';
 export async function createExternalPriceAccount(
   connection: Connection,
   wallet: WalletSigner,
+  totalSupply?: BN,
+  buyoutPrice?: BN,
+  priceMint?: StringPublicKey,
 ): Promise<{
   priceMint: StringPublicKey;
   externalPriceAccount: StringPublicKey;
@@ -33,6 +36,14 @@ export async function createExternalPriceAccount(
 }> {
   if (!wallet.publicKey) throw new WalletNotConnectedError();
 
+  if(priceMint == undefined) {
+    priceMint = QUOTE_MINT.toBase58();
+  }
+
+  let pricePerShare = new BN(0);
+  if(buyoutPrice != undefined && totalSupply != undefined) {
+    pricePerShare = buyoutPrice.div(totalSupply);
+  }
   const PROGRAM_IDS = utils.programIds();
 
   const signers: Keypair[] = [];
@@ -45,9 +56,10 @@ export async function createExternalPriceAccount(
   const externalPriceAccount = Keypair.generate();
   const key = externalPriceAccount.publicKey.toBase58();
 
-  const epaStruct = new ExternalPriceAccount({
-    pricePerShare: new BN(0),
-    priceMint: QUOTE_MINT.toBase58(),
+
+  let epaStruct = new ExternalPriceAccount({
+    pricePerShare,
+    priceMint,
     allowedToCombine: true,
   });
 
@@ -64,8 +76,8 @@ export async function createExternalPriceAccount(
   await updateExternalPriceAccount(key, epaStruct, instructions);
 
   return {
+    priceMint,
     externalPriceAccount: key,
-    priceMint: QUOTE_MINT.toBase58(),
     instructions,
     signers,
   };

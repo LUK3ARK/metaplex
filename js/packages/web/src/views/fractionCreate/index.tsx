@@ -63,7 +63,7 @@ export interface FractionState {
 export const FractionCreateView = () => {
   const connection = useConnection();
   const wallet = useWallet();
-  const { whitelistedCreatorsByCreator, } = useMeta(); // todo - get 'storeIndexer' from this to (maybe at some point i have got rid of store functionality)
+  const { whitelistedFrackersByFracker, frackHouseIndexer} = useMeta(); // todo - get 'storeIndexer' from this to (maybe at some point i have got rid of store functionality)
   const { step_param }: { step_param: string } = useParams();
   const history = useHistory();
   const { width } = useWindowDimensions();
@@ -117,15 +117,15 @@ export const FractionCreateView = () => {
 
       const safetyDepositDrafts = attributes.items;
 
-      // todo - market pool size just set as 0 for now
+      // todo - remove debug
       console.log("quotemint address is " + attributes.quoteMintAddress);
       const _fractionObj = await createFractionManager(
         connection,
         wallet,
-        whitelistedCreatorsByCreator,
         fractionVaultSettings,
         safetyDepositDrafts,
         attributes.quoteMintAddress,
+        frackHouseIndexer,
       );
       setFractionObj(_fractionObj);
 
@@ -285,18 +285,20 @@ const PriceFractionsStep = ({
   const [showTokenDialog, setShowTokenDialog] = useState(false);
   const [mint, setMint] = useState<PublicKey>(WRAPPED_SOL_MINT);
 
+  const { hasOtherTokens, tokenMap } = useTokenList();
+  
+  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
+  
   attributes.quoteMintAddress = mint? mint.toBase58(): QUOTE_MINT.toBase58()
 
   if (attributes.quoteMintAddress) {
-    attributes.quoteMintInfo = useMint(attributes.quoteMintAddress)!
-    attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(attributes.quoteMintAddress)!
+    attributes.quoteMintInfo = useMint(attributes.quoteMintAddress)!;
+    attributes.quoteMintInfoExtended = useTokenList().tokenMap.get(
+      attributes.quoteMintAddress,
+    )!;
   }
-  setAttributes({...attributes});
-
-  const { hasOtherTokens, tokenMap} = useTokenList();
-
   // give default value to mint
-  const mintInfo = tokenMap.get((!mint? QUOTE_MINT.toString(): mint.toString()));
+
 
   return (
     <>

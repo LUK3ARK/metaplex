@@ -24,7 +24,12 @@ import {
   Store,
   StoreIndexer,
   WhitelistedCreator,
-} from '../../models/metaplex';
+  FrackHouse,
+  FrackHouseIndexer,
+  FractionSafetyDepositConfig,
+} from '../../models';
+import { FractionManager, OperatingConfig, WhitelistedFracker } from '../../models/frantik';
+import { VaultCache } from '../../models/frantik';
 import { PackCard } from '../../models/packs/accounts/PackCard';
 import { PackSet } from '../../models/packs/accounts/PackSet';
 import { PackVoucher } from '../../models/packs/accounts/PackVoucher';
@@ -54,6 +59,10 @@ export interface MetaState {
     string,
     ParsedAccount<AuctionManagerV1 | AuctionManagerV2>
   >;
+  fractionManagersByVault: Record<
+    string,
+    ParsedAccount<FractionManager>
+  >;
   safetyDepositConfigsByAuctionManagerAndIndex: Record<
     string,
     ParsedAccount<SafetyDepositConfig>
@@ -82,12 +91,21 @@ export interface MetaState {
   >;
   payoutTickets: Record<string, ParsedAccount<PayoutTicket>>;
   auctionCaches: Record<string, ParsedAccount<AuctionCache>>;
+  vaultCaches: Record<string, ParsedAccount<VaultCache>>;
   storeIndexer: ParsedAccount<StoreIndexer>[];
   packs: Record<string, ParsedAccount<PackSet>>;
   packCards: Record<string, ParsedAccount<PackCard>>;
   packCardsByPackSet: Record<string, ParsedAccount<PackCard>[]>;
   vouchers: Record<string, ParsedAccount<PackVoucher>>;
   provingProcesses: Record<string, ParsedAccount<ProvingProcess>>;
+  frackHouseIndexer: ParsedAccount<FrackHouseIndexer>[];
+  frackHouse: ParsedAccount<FrackHouse> | null;
+  fractionSafetyDepositConfigsByFractionManagerAndIndex: Record<
+    string,
+    ParsedAccount<FractionSafetyDepositConfig>
+  >;
+  whitelistedFrackersByFracker: Record<string, ParsedAccount<WhitelistedFracker>>;
+  operatingConfig: ParsedAccount<OperatingConfig> | null;
 }
 
 export interface MetaContextState extends MetaState {

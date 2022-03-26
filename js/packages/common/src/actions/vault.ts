@@ -23,6 +23,19 @@ export enum VaultState {
   Deactivated = 3,
 }
 
+export class Fracker {
+  address: StringPublicKey;
+  verified: boolean;
+
+  constructor(args: {
+    address: StringPublicKey;
+    verified: boolean;
+  }) {
+    this.address = args.address;
+    this.verified = args.verified;
+  }
+}
+
 export const MAX_VAULT_SIZE =
   1 + 32 + 32 + 32 + 32 + 1 + 32 + 1 + 32 + 1 + 1 + 8;
 

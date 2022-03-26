@@ -22,6 +22,7 @@ import { useStore } from '../store';
 import { AuctionData, BidderMetadata, BidderPot } from '../../actions';
 import {
   pullAuctionSubaccounts,
+  pullVaultSubaccounts,
   pullPage,
   pullPayoutTickets,
   pullStoreMetadata,
@@ -29,6 +30,7 @@ import {
   pullPack,
 } from '.';
 import { StringPublicKey, TokenAccount, useUserAccounts } from '../..';
+import { useFrackHouse } from '..';
 
 const MetaContext = React.createContext<MetaContextState>({
   ...getEmptyMetaState(),
@@ -44,8 +46,10 @@ export function MetaProvider({
   children: React.ReactNode;
 }) {
   const connection = useConnection();
-  const { isReady, storeAddress } = useStore();
+  const { isStoreReady, storeAddress } = useStore();
+  const { isFrackHouseReady, frackHouseAddress } = useFrackHouse();
   const wallet = useWallet();
+  // todo from here maybe
 
   const [state, setState] = useState<MetaState>(getEmptyMetaState());
   const [page, setPage] = useState(0);
@@ -83,7 +87,7 @@ export function MetaProvider({
   async function pullAllMetadata() {
     if (isLoading) return false;
     if (!storeAddress) {
-      if (isReady) {
+      if (isStoreReady) {
         setIsLoading(false);
       }
       return;
@@ -103,7 +107,7 @@ export function MetaProvider({
   async function pullBillingPage(auctionAddress: StringPublicKey) {
     if (isLoading) return false;
     if (!storeAddress) {
-      if (isReady) {
+      if (isStoreReady) {
         setIsLoading(false);
       }
       return;
@@ -134,7 +138,7 @@ export function MetaProvider({
   async function pullAuctionPage(auctionAddress: StringPublicKey) {
     if (isLoading) return state;
     if (!storeAddress) {
-      if (isReady) {
+      if (isStoreReady) {
         setIsLoading(false);
       }
       return state;
@@ -144,6 +148,26 @@ export function MetaProvider({
     const nextState = await pullAuctionSubaccounts(
       connection,
       auctionAddress,
+      state,
+    );
+    setState(nextState);
+    await updateMints(nextState.metadataByMint);
+    return nextState;
+  }
+
+  async function pullVaultPage(vaultAddress: StringPublicKey) {
+    if (isLoading) return state;
+    if (!frackHouseAddress) {
+      if (isFrackHouseReady) {
+        setIsLoading(false);
+      }
+      return state;
+    } else if (!state.frackHouse) {
+      setIsLoading(true);
+    }
+    const nextState = await pullVaultSubaccounts(
+      connection,
+      vaultAddress,
       state,
     );
     setState(nextState);
@@ -205,7 +229,7 @@ export function MetaProvider({
   async function pullAllSiteData() {
     if (isLoading) return state;
     if (!storeAddress) {
-      if (isReady) {
+      if (isStoreReady) {
         setIsLoading(false);
       }
       return state;
@@ -225,7 +249,7 @@ export function MetaProvider({
 
   async function update(auctionAddress?: any, bidderAddress?: any) {
     if (!storeAddress) {
-      if (isReady) {
+      if (isStoreReady) {
         //@ts-ignore
         window.loadingData = false;
         setIsLoading(false);
@@ -352,7 +376,7 @@ export function MetaProvider({
       update(undefined, undefined);
       updateRequestsInQueue.current = 0;
     }
-  }, [connection, setState, updateMints, storeAddress, isReady, page]);
+  }, [connection, setState, updateMints, storeAddress, isStoreReady, page]);
 
   // Fetch metadata on userAccounts change
   useEffect(() => {
@@ -380,6 +404,7 @@ export function MetaProvider({
         // @ts-ignore
         update,
         pullAuctionPage,
+        pullVaultPage,
         pullAllMetadata,
         pullBillingPage,
         // @ts-ignore

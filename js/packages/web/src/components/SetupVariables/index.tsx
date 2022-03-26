@@ -7,11 +7,15 @@ import React, { useCallback, useRef } from 'react';
 interface Variables {
   storeAddress?: string;
   storeOwnerAddress?: string;
+  frackHouseAddress?: string;
+  frackHouseOwnerAddress?: string;
 }
 
 export const SetupVariables: FC<Variables> = ({
   storeAddress,
   storeOwnerAddress,
+  frackHouseAddress,
+  frackHouseOwnerAddress,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -22,7 +26,11 @@ export const SetupVariables: FC<Variables> = ({
     }
   }, []);
 
-  if (!storeAddress && !storeOwnerAddress) {
+  if (!storeAddress &&
+      !storeOwnerAddress &&
+      !frackHouseAddress &&
+      !frackHouseOwnerAddress
+  ) {
     return null;
   }
 
@@ -40,6 +48,9 @@ export const SetupVariables: FC<Variables> = ({
       <div ref={ref}>
         {storeOwnerAddress && (
           <p>REACT_APP_STORE_OWNER_ADDRESS_ADDRESS={storeOwnerAddress}</p>
+        )}
+        {frackHouseOwnerAddress && (
+          <p>REACT_APP_FRACK_HOUSE_OWNER_ADDRESS={frackHouseOwnerAddress}</p>
         )}
       </div>
     </Card>

@@ -26,18 +26,22 @@ import {
   getWhitelistedCreator,
   WhitelistedCreator,
   initFractionManager,
+  FrackHouseIndexer,
+  WhitelistedFracker,
+  WhitelistedFrackerParser,
 } from '@oyster/common';
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
 import BN from 'bn.js';
 import { createVault } from './createVault';
 import { addTokensToVault } from './addTokensToVault';
 import { FractionSafetyDepositInstructionTemplate } from './activateFractionVault';
-import { createExternalFractionPriceAccount } from './createExternalFractionPriceAccount';
+import { createExternalPriceAccount } from './createExternalPriceAccount';
 import { setVaultFractionAuthorities } from './setVaultFractionAuthorities';
 import { markItemsThatArentMineAsSold } from './markItemsThatArentMineAsSold';
 import { validateFractionSafetyDepositBox } from '@oyster/common/dist/lib/models/frantik/validateFractionSafetyDepositBox';
 import { activateFractionVault } from '../actions/activateFractionVault';
-
+import { cacheVaultIndexer } from './cacheVaultInIndexer';
+import Fracker from '@oyster/common';
 interface normalPattern {
   instructions: TransactionInstruction[];
   signers: Keypair[];
@@ -57,8 +61,7 @@ interface byType {
   initFractionManager: normalPattern;
   setVaultFractionAuthorities: normalPattern;
   externalFractionPriceAccount: normalPattern;
-  // TODO :)
-  //cacheFractionIndexer: arrayPattern;
+  cacheVaultIndexer: arrayPattern;
 }
 
 export interface FractionSafetyDepositDraft {
@@ -74,14 +77,10 @@ export interface FractionSafetyDepositDraft {
 export async function createFractionManager(
   connection: Connection,
   wallet: WalletSigner,
-  whitelistedCreatorsByCreator: Record<
-    string,
-    ParsedAccount<WhitelistedCreator>
-  >,
   fractionVaultSettings: ICreateFractionArgs,
   safetyDepositDrafts: FractionSafetyDepositDraft[],
   paymentMint: StringPublicKey,
-  //storeIndexer: ParsedAccount<StoreIndexer>[], // TODO
+  frackHouseIndexer: ParsedAccount<FrackHouseIndexer>[],
 ): Promise<{
   vault: StringPublicKey;
   fractionManager: StringPublicKey;
@@ -91,7 +90,7 @@ export async function createFractionManager(
     externalPriceAccount,
     instructions: epaInstructions,
     signers: epaSigners,
-  } = await createExternalFractionPriceAccount(
+  } = await createExternalPriceAccount(
     connection,
     wallet,
     fractionVaultSettings.maxSupply,
@@ -137,6 +136,7 @@ export async function createFractionManager(
   } = await setupFractionManagerInstructions(
     wallet,
     vault,
+    paymentMint,
     fractionalMint,
     externalPriceAccount,
   );
@@ -170,21 +170,18 @@ export async function createFractionManager(
     ),
     validateBoxes: await validateBoxes(
       wallet,
-      whitelistedCreatorsByCreator,
       vault,
       safetyDepositConfigs,
       safetyDepositTokenStores,
       fractionalMint,
     ),
-    // TODO - sort out indexer for fractions
-    // cacheAuctionIndexer: await cacheAuctionIndexer(
-    //   wallet,
-    //   vault,
-    //   auction,
-    //   auctionManager,
-    //   safetyDepositConfigs.map(s => s.draft.metadata.info.mint),
-    //   storeIndexer,
-    // ),
+    cacheVaultIndexer: await cacheVaultIndexer(
+      wallet,
+      vault,
+      fractionManager,
+      safetyDepositConfigs.map(s => s.draft.metadata.info.mint),
+      frackHouseIndexer,
+    ),
   };
 
   const signers: Keypair[][] = [
@@ -196,7 +193,7 @@ export async function createFractionManager(
     lookup.initFractionManager.signers,
     lookup.setVaultFractionAuthorities.signers,
     ...lookup.validateBoxes.signers,
-    //TODO - ...lookup.cacheFractionIndexer.signers,
+    ...lookup.cacheVaultIndexer.signers,
   ];
 
   // TODO - REMOVE DEBUG
@@ -216,7 +213,7 @@ export async function createFractionManager(
     lookup.initFractionManager.instructions,
     lookup.setVaultFractionAuthorities.instructions,
     ...lookup.validateBoxes.instructions,
-    // TODO - ^^^^ ...lookup.cacheFractionIndexer.instructions,
+    ...lookup.cacheVaultIndexer.instructions,
   ].filter((instr, i) => {
     if (instr.length > 0) {
       return true;
@@ -282,6 +279,7 @@ export async function createFractionManager(
   // TODO - are these the right things returned?
   return { vault, fractionManager, fractionalMint };
 
+  // TODO - dont think needed maybe?
   // IMPORTANT
   // So, after activating the vault,
   // fractionalMint is the address who can mint new
@@ -337,6 +335,7 @@ async function setupFractionManagerInstructions(
   wallet: WalletSigner,
   vault: StringPublicKey,
   tokenMint: StringPublicKey,
+  fractionMint: StringPublicKey,
   externalPriceAccount: StringPublicKey,
 ): Promise<{
   instructions: TransactionInstruction[];
@@ -359,6 +358,7 @@ async function setupFractionManagerInstructions(
     fractionManagerKey,
     vault,
     tokenMint,
+    fractionMint,
     externalPriceAccount,
     wallet.publicKey.toBase58(),
     wallet.publicKey.toBase58(),
@@ -369,28 +369,22 @@ async function setupFractionManagerInstructions(
   return { instructions, signers, fractionManager: fractionManagerKey };
 }
 
-async function findValidWhitelistedCreator(
-  whitelistedCreatorsByCreator: Record<
+async function isValidWhitelistedFracker(
+  whitelistedFrackersByFracker: Record<
     string,
-    ParsedAccount<WhitelistedCreator>
+    ParsedAccount<WhitelistedFracker>
   >,
-  creators: Creator[],
-): Promise<StringPublicKey> {
-  for (let i = 0; i < creators.length; i++) {
-    const creator = creators[i];
+  walletPubKey: StringPublicKey,
+): Promise<boolean> {
 
-    if (whitelistedCreatorsByCreator[creator.address]?.info.activated)
-      return whitelistedCreatorsByCreator[creator.address].pubkey;
+  if (whitelistedFrackersByFracker[walletPubKey]?.info.activated) {
+    return true;
   }
-  return await getWhitelistedCreator(creators[0]?.address);
+  return false;
 }
 
 export async function validateBoxes(
   wallet: WalletSigner,
-  whitelistedCreatorsByCreator: Record<
-    string,
-    ParsedAccount<WhitelistedCreator>
-  >,
   vault: StringPublicKey,
   safetyDeposits: FractionSafetyDepositInstructionTemplate[],
   safetyDepositTokenStores: StringPublicKey[],
@@ -421,15 +415,6 @@ export async function validateBoxes(
       safetyDeposits[i].draft.metadata.info.mint,
     );
 
-    const whitelistedCreator = safetyDeposits[i].draft.metadata.info.data
-      .creators
-      ? await findValidWhitelistedCreator(
-          whitelistedCreatorsByCreator,
-          //@ts-ignore
-          safetyDeposits[i].draft.metadata.info.data.creators,
-        )
-      : undefined;
-
     await validateFractionSafetyDepositBox(
       vault,
       safetyDeposits[i].draft.metadata.pubkey,
@@ -441,7 +426,7 @@ export async function validateBoxes(
       wallet.publicKey.toBase58(),
       tokenInstructions,
       edition,
-      whitelistedCreator,
+      wallet.publicKey.toBase58(),
       store,
       safetyDeposits[i].config,
       fractionMint,
